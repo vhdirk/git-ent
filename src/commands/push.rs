@@ -78,6 +78,8 @@ fn push_one(r: &RepoHandle, push_options: &[&str]) -> Result<Option<PushResult>>
     let sideband_capture = Arc::clone(&sideband_lines);
 
     let mut callbacks = RemoteCallbacks::new();
+
+    // TODO: first collect all sideband lines, THEN split into lines
     callbacks.sideband_progress(move |data| {
         if let Ok(text) = std::str::from_utf8(data) {
             if let Ok(mut lines) = sideband_capture.lock() {
@@ -91,6 +93,7 @@ fn push_one(r: &RepoHandle, push_options: &[&str]) -> Result<Option<PushResult>>
         }
         true
     });
+
     callbacks.credentials(|url, username_from_url, allowed| {
         // SSH: auth via agent or standard key files (~/.ssh/id_*)
         // libgit2 requires a callback for SSH; this callback follows standard SSH behavior.
@@ -160,7 +163,6 @@ fn extract_push_notices(lines: &[String]) -> Vec<String> {
             lower.contains("http://")
                 || lower.contains("https://")
                 || lower.contains("merge request")
-                || lower.contains("merge_requests")
         })
         .cloned()
         .collect()
