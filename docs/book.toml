@@ -1,0 +1,15 @@
+[book]
+authors = ["Dirk Van Haerenborgh"]
+language = "en"
+src = "src"
+title = "sgit"
+description = "Manage projects with (nested) git submodules"
+
+[output.html]
+git-repository-url = "https://github.com/vhdirk/sgit"
+default-theme = "ayu"
+preferred-dark-theme = "ayu"
+additional-css = []
+
+[rust]
+edition = "2024"

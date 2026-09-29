@@ -1,0 +1,14 @@
+{
+  "recommendations": [
+    // general
+    "dangmai.workspace-default-settings",
+    "usernamehw.errorlens",
+
+    // python
+    "ms-python.python",
+    "ms-python.debugpy",
+    "njpwerner.autodocstring",
+    "charliermarsh.ruff",
+    "astral-sh.ty"
+  ],
+}
