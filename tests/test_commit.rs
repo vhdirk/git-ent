@@ -193,3 +193,68 @@ fn commit_msg_hook_can_edit_message_from_configured_hooks_path() {
         "edited by hook"
     );
 }
+
+#[test]
+fn prepare_commit_msg_hook_runs() {
+    let p = common::plain_repo();
+    let hook_dir = p.path.join(".git/hooks");
+    std::fs::create_dir_all(&hook_dir).unwrap();
+    let hook = hook_dir.join("prepare-commit-msg");
+    std::fs::write(
+        &hook,
+        "#!/bin/sh\nprintf 'prepared: ' > \"$1.tmp\" && cat \"$1\" >> \"$1.tmp\" && mv \"$1.tmp\" \"$1\"\n",
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    std::fs::write(p.path.join("file.txt"), "changed\n").unwrap();
+    common::git(&p.path, &["add", "file.txt"]);
+    common::in_cwd(&p.path, || {
+        commands::commit::run(Some("initial message"), false)
+    })
+    .unwrap();
+
+    let subject = common::git_out(&p.path, &["log", "-1", "--pretty=%s"]);
+    assert_eq!(
+        String::from_utf8_lossy(&subject.stdout).trim(),
+        "prepared: initial message"
+    );
+}
+
+#[test]
+fn hooks_run_in_order_exactly_once() {
+    let p = common::plain_repo();
+    let hook_dir = p.path.join(".git/hooks");
+    std::fs::create_dir_all(&hook_dir).unwrap();
+    let log_file = p.tmp.path().join("hooks.log");
+    let log_path = log_file.to_str().unwrap();
+
+    for (name, payload) in [
+        ("pre-commit", "pre-commit\n"),
+        ("prepare-commit-msg", "prepare-commit-msg\n"),
+        ("commit-msg", "commit-msg\n"),
+    ] {
+        let hook = hook_dir.join(name);
+        std::fs::write(
+            &hook,
+            format!("#!/bin/sh\nprintf '{payload}' >> '{log_path}'\n"),
+        )
+        .unwrap();
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755)).unwrap();
+        }
+    }
+
+    std::fs::write(p.path.join("file.txt"), "changed\n").unwrap();
+    common::git(&p.path, &["add", "file.txt"]);
+    common::in_cwd(&p.path, || commands::commit::run(Some("test hooks"), false)).unwrap();
+
+    let content = std::fs::read_to_string(&log_file).unwrap_or_default();
+    assert_eq!(content, "pre-commit\nprepare-commit-msg\ncommit-msg\n");
+}

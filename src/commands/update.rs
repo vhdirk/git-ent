@@ -1,34 +1,16 @@
-//! `sgit update` - init + update submodules recursively, via libgit2.
-
-use git2::{FetchOptions, Repository, SubmoduleUpdateOptions};
+//! `sgit update` - init + update submodules recursively, via git CLI.
 
 use crate::RepoTree;
 use crate::error::Result;
+use crate::git::SubmoduleUpdateCommand;
 
 /// Initialize and update all submodules recursively for the root repo.
 pub fn run() -> Result<()> {
     let tree = RepoTree::discover(None)?;
     let label = tree.root.label();
-    match update_recursive(&tree.root.repo) {
+    match tree.root.git(&SubmoduleUpdateCommand) {
         Ok(()) => println!("[{label}] Submodules updated (init + recursive)"),
         Err(e) => eprintln!("[{label}] Error updating submodules: {e}"),
-    }
-    Ok(())
-}
-
-/// Recursively run submodule update for `repo` and each nested submodule.
-///
-/// - `repo`: repository whose submodule tree is updated.
-fn update_recursive(repo: &Repository) -> Result<()> {
-    for mut sm in repo.submodules()? {
-        let mut fetch_opts = FetchOptions::new();
-        fetch_opts.remote_callbacks(crate::commands::push::remote_callbacks());
-        let mut opts = SubmoduleUpdateOptions::new();
-        opts.fetch(fetch_opts);
-        sm.update(true, Some(&mut opts))?;
-        if let Ok(sub_repo) = sm.open() {
-            update_recursive(&sub_repo)?;
-        }
     }
     Ok(())
 }

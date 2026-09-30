@@ -11,14 +11,10 @@ automatically updates the submodule pointers in parent repos.
 This Rust implementation is built on:
 
 - [`clap`](https://docs.rs/clap) with derive macros for the CLI.
-- [`git2`](https://docs.rs/git2) (libgit2) for read-side repository
-  introspection.
+- An argument-safe process layer invoking the system `git` CLI for all
+  repository operations (discovery, status, hooks, and history operations).
 - [`thiserror`](https://docs.rs/thiserror) for typed, ergonomic errors.
-- A thin shell-out layer for the few operations (merge, rebase, push,
-  restore, add, …) where the git CLI's semantics are simpler and more
-  robust than re-implementing them on top of libgit2.
 
-> Why both? libgit2 is excellent for *reading* a repository (status,
-> branches, submodules, merge-base computations); the git CLI handles
-> *all* the corner cases of write-side operations (hooks, credential
-> helpers, line-endings, renames) so sgit doesn't have to.
+By executing the Git CLI directly, sgit leverages Git's native hooks, credential
+helpers, line-ending filters, and transport protocols without external C library
+dependencies.

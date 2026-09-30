@@ -82,8 +82,18 @@ fn lists_branches_with_submodules() {
 
 #[test]
 /// Test case for long create flag.
-///
 fn long_create_flag() {
     let p = common::plain_repo();
     common::in_cwd(&p.path, || commands::branch::run(Some("long-flag"))).unwrap();
+}
+
+#[test]
+/// Test case for branch name with slash like feature/topic.
+fn creates_and_lists_branch_with_slashes() {
+    let p = common::plain_repo();
+    common::in_cwd(&p.path, || commands::branch::run(Some("feature/topic"))).unwrap();
+
+    let out = common::git_out(&p.path, &["branch"]);
+    assert!(String::from_utf8_lossy(&out.stdout).contains("feature/topic"));
+    common::in_cwd(&p.path, || commands::branch::run(None)).unwrap();
 }

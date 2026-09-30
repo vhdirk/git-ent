@@ -80,8 +80,7 @@
                 pkg-config
                 mdbook
 
-                libgit2.dev
-                openssl.dev
+                git
                 cargo-tarpaulin
                 # config.packages.sgit
               ];

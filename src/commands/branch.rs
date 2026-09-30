@@ -1,9 +1,8 @@
 //! `sgit branch` - list or create branches across the whole tree.
 
-use git2::BranchType;
-
 use crate::RepoTree;
 use crate::error::Result;
+use crate::git::BranchCommand;
 
 /// List local branches or create one branch across all repos.
 ///
@@ -15,56 +14,40 @@ pub fn run(create: Option<&str>) -> Result<()> {
         for r in tree.all() {
             println!("\n\x1b[1;34m[{}]\x1b[0m", r.label());
             let active = r.branch_name();
-            let branches = match r.repo.branches(Some(BranchType::Local)) {
-                Ok(it) => it,
-                Err(_) => {
-                    println!("  (no branches yet)");
-                    continue;
-                }
-            };
-            let mut any = false;
-            for b in branches.flatten() {
-                if let Ok(Some(bn)) = b.0.name() {
-                    any = true;
-                    let marker = if Some(bn.to_string()) == active {
-                        "* "
-                    } else {
-                        "  "
-                    };
-                    println!("{marker}{bn}");
-                }
-            }
-            if !any {
+            let branches = r.list_branches().unwrap_or_default();
+            if branches.is_empty() {
                 println!("  (no branches yet)");
+                continue;
+            }
+            for bn in &branches {
+                let marker = if Some(bn) == active.as_ref() {
+                    "* "
+                } else {
+                    "  "
+                };
+                println!("{marker}{bn}");
             }
         }
         return Ok(());
     };
 
+    let cmd = BranchCommand::create(name);
     for r in tree.all() {
         let label = r.label();
-        // `idempotent create` matches the Python behaviour (duplicate OK).
-        let head = match r.repo.head() {
-            Ok(h) => h,
+        // `idempotent create` matches the Python behavior (duplicate OK).
+        if r.branch_exists(name) {
+            println!("[{label}] Created branch '{name}'");
+            continue;
+        }
+        match r.git(&cmd) {
+            Ok(()) => println!("[{label}] Created branch '{name}'"),
             Err(e) => {
-                eprintln!("[{label}] Error creating branch: {e}");
-                continue;
+                if r.branch_exists(name) {
+                    println!("[{label}] Created branch '{name}'");
+                } else {
+                    eprintln!("[{label}] Error creating branch: {e}");
+                }
             }
-        };
-        let commit = match head.peel_to_commit() {
-            Ok(c) => c,
-            Err(e) => {
-                eprintln!("[{label}] Error creating branch: {e}");
-                continue;
-            }
-        };
-        match r.repo.branch(name, &commit, false) {
-            Ok(_) => println!("[{label}] Created branch '{name}'"),
-            Err(e) if e.code() == git2::ErrorCode::Exists => {
-                // Idempotent: report as created for parity with Python.
-                println!("[{label}] Created branch '{name}'");
-            }
-            Err(e) => eprintln!("[{label}] Error creating branch: {e}"),
         }
     }
     Ok(())

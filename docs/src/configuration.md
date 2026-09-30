@@ -1,16 +1,23 @@
 # Configuration
 
-sgit reads two config files per operation, merging them in order:
+sgit reads configuration from two locations:
 
 1. **Global** - `$XDG_CONFIG_HOME/sgit/sgit.toml` (typically
-   `~/.config/sgit/sgit.toml`). Exclusions here apply to every repo on
-   the machine.
+   `~/.config/sgit/sgit.toml`). Configures the `git` executable, global
+   exclusions, and global aliases.
 2. **Repo-local** - `.sgit.toml` at the root of each individual repo.
-  Exclusions are relative to that repo root and can target nested
-  submodules (for example `mid/leaf`).
+   Exclusions are relative to that repo root and can target nested
+   submodules (for example `mid/leaf`).
 
-Both files use the same format. If the same path appears in both, it is
-deduplicated.
+## Git Executable
+
+The path to the `git` executable can **only** be configured globally in
+`$XDG_CONFIG_HOME/sgit/sgit.toml`. It cannot be set per repository:
+
+```toml
+# ~/.config/sgit/sgit.toml
+git = "/usr/bin/git"  # Optional; defaults to "git" on PATH
+```
 
 ## Where config files can be placed
 

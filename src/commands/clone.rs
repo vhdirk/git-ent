@@ -1,10 +1,9 @@
-//! `sgit clone` - recursive clone via libgit2.
+//! `sgit clone` - recursive clone via git CLI.
 
 use std::path::PathBuf;
 
-use git2::{FetchOptions, Repository, SubmoduleUpdateOptions, build::RepoBuilder};
-
 use crate::error::Result;
+use crate::git::{CloneCommand, Git, GitCommand};
 
 /// Clone `url` into `dest` (inferred from `url` when omitted), recursively
 /// including all submodules.
@@ -14,31 +13,11 @@ pub fn run(url: &str, dest: Option<&str>) -> Result<()> {
     let dest_path = PathBuf::from(dest);
 
     println!("Cloning {url} into {dest} (recursive)...");
-    let mut fetch = FetchOptions::new();
-    fetch.remote_callbacks(crate::commands::push::remote_callbacks());
-    let repo = RepoBuilder::new()
-        .fetch_options(fetch)
-        .clone(url, &dest_path)?;
-    init_submodules_recursive(&repo)?;
+    let git = Git::default();
+    let current_dir = std::env::current_dir()?;
+    let cmd = CloneCommand::recursive(url, Some(dest_path));
+    cmd.run(&git, &current_dir)?;
     println!("Done.");
-    Ok(())
-}
-
-/// Initialize and update all submodules recursively after clone.
-///
-/// - `repo`: newly cloned repository root.
-fn init_submodules_recursive(repo: &Repository) -> Result<()> {
-    for mut sm in repo.submodules()? {
-        let mut fetch_opts = FetchOptions::new();
-        fetch_opts.remote_callbacks(crate::commands::push::remote_callbacks());
-        let mut update_opts = SubmoduleUpdateOptions::new();
-        update_opts.fetch(fetch_opts);
-        sm.update(true, Some(&mut update_opts))?;
-        // Recurse into the (now-initialised) submodule.
-        if let Ok(sub_repo) = sm.open() {
-            init_submodules_recursive(&sub_repo)?;
-        }
-    }
     Ok(())
 }
 

@@ -17,22 +17,22 @@ pkgs.rustPlatform.buildRustPackage rec {
   };
 
   nativeBuildInputs = with pkgs; [
-    pkg-config
-    git
+    makeWrapper
   ];
 
-  buildInputs = with pkgs; [
-    openssl.dev
-    libgit2.dev
-    zlib
-  ];
+  buildInputs = [];
+
+  postInstall = ''
+    wrapProgram $out/bin/sgit \
+      --prefix PATH : ${pkgs.lib.makeBinPath [ pkgs.git ]}
+  '';
 
   doCheck = false;
 
   meta = with pkgs.lib; {
     description = "Manage projects with (nested) git submodules";
     homepage = "https://github.com/vhdirk/sgit";
-    license = licenses.unfree;
+    license = licenses.mit;
     mainProgram = "sgit";
     platforms = platforms.unix;
     maintainers = [ ];

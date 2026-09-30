@@ -140,3 +140,77 @@ fn switch_invalid_usage_without_target() {
         .is_err()
     );
 }
+
+#[test]
+/// Test case for switch -c reporting an error when branch already exists.
+///
+fn switch_c_fails_if_branch_already_exists() {
+    let p = common::plain_repo();
+    common::git(&p.path, ["branch", "topic"].as_slice());
+
+    // Switch -c topic should report that branch already exists without crashing.
+    common::in_cwd(&p.path, || {
+        commands::switch::run(None, Some("topic"), None, false)
+    })
+    .unwrap();
+
+    // HEAD should still be main since -c failed.
+    let head_name = String::from_utf8_lossy(
+        &common::git_out(&p.path, ["rev-parse", "--abbrev-ref", "HEAD"].as_slice()).stdout,
+    )
+    .trim()
+    .to_string();
+    assert_eq!(head_name, "main");
+}
+
+#[test]
+/// Test case for switch -c with a specified start point revision.
+///
+fn switch_c_with_start_point() {
+    let p = common::plain_repo();
+    let initial_oid =
+        String::from_utf8_lossy(&common::git_out(&p.path, ["rev-parse", "HEAD"].as_slice()).stdout)
+            .trim()
+            .to_string();
+
+    std::fs::write(p.path.join("file.txt"), "second commit\n").unwrap();
+    common::git(&p.path, ["add", "file.txt"].as_slice());
+    common::git(&p.path, ["commit", "-q", "-m", "second"].as_slice());
+
+    common::in_cwd(&p.path, || {
+        commands::switch::run(Some("HEAD~1"), Some("branched_earlier"), None, false)
+    })
+    .unwrap();
+
+    let head_name = String::from_utf8_lossy(
+        &common::git_out(&p.path, ["rev-parse", "--abbrev-ref", "HEAD"].as_slice()).stdout,
+    )
+    .trim()
+    .to_string();
+    assert_eq!(head_name, "branched_earlier");
+
+    let head_oid =
+        String::from_utf8_lossy(&common::git_out(&p.path, ["rev-parse", "HEAD"].as_slice()).stdout)
+            .trim()
+            .to_string();
+    assert_eq!(head_oid, initial_oid);
+}
+
+#[test]
+/// Test case for switch -C creating and switching to a branch that did not exist.
+///
+fn switch_force_create_creates_new_branch_when_not_existing() {
+    let p = common::plain_repo();
+
+    common::in_cwd(&p.path, || {
+        commands::switch::run(None, None, Some("brandnew"), false)
+    })
+    .unwrap();
+
+    let head_name = String::from_utf8_lossy(
+        &common::git_out(&p.path, ["rev-parse", "--abbrev-ref", "HEAD"].as_slice()).stdout,
+    )
+    .trim()
+    .to_string();
+    assert_eq!(head_name, "brandnew");
+}

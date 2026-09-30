@@ -89,3 +89,67 @@ fn restore_nonexistent_reports() {
     })
     .unwrap();
 }
+
+#[test]
+fn restore_path_with_spaces() {
+    let p = common::plain_repo();
+    std::fs::write(p.path.join("file with spaces.txt"), "initial\n").unwrap();
+    common::git(&p.path, &["add", "--", "file with spaces.txt"]);
+    common::git(&p.path, &["commit", "-q", "-m", "commit spaces"]);
+
+    std::fs::write(p.path.join("file with spaces.txt"), "changed\n").unwrap();
+    common::in_cwd(&p.path, || {
+        commands::restore::run(&["file with spaces.txt".into()], false)
+    })
+    .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(p.path.join("file with spaces.txt")).unwrap(),
+        "initial\n"
+    );
+}
+
+#[test]
+fn restore_path_with_leading_dash() {
+    let p = common::plain_repo();
+    std::fs::write(p.path.join("-leading-dash.txt"), "initial\n").unwrap();
+    common::git(&p.path, &["add", "--", "-leading-dash.txt"]);
+    common::git(&p.path, &["commit", "-q", "-m", "commit dash"]);
+
+    std::fs::write(p.path.join("-leading-dash.txt"), "changed\n").unwrap();
+    common::in_cwd(&p.path, || {
+        commands::restore::run(&["-leading-dash.txt".into()], false)
+    })
+    .unwrap();
+    assert_eq!(
+        std::fs::read_to_string(p.path.join("-leading-dash.txt")).unwrap(),
+        "initial\n"
+    );
+}
+
+#[test]
+fn unstage_path_with_spaces() {
+    let p = common::plain_repo();
+    std::fs::write(p.path.join("file with spaces.txt"), "staged\n").unwrap();
+    common::git(&p.path, &["add", "--", "file with spaces.txt"]);
+    common::in_cwd(&p.path, || {
+        commands::restore::run(&["file with spaces.txt".into()], true)
+    })
+    .unwrap();
+
+    let diff = common::git_out(&p.path, &["diff", "--cached", "--name-only"]);
+    assert!(!String::from_utf8_lossy(&diff.stdout).contains("file with spaces.txt"));
+}
+
+#[test]
+fn unstage_path_with_leading_dash() {
+    let p = common::plain_repo();
+    std::fs::write(p.path.join("-leading-dash.txt"), "staged\n").unwrap();
+    common::git(&p.path, &["add", "--", "-leading-dash.txt"]);
+    common::in_cwd(&p.path, || {
+        commands::restore::run(&["-leading-dash.txt".into()], true)
+    })
+    .unwrap();
+
+    let diff = common::git_out(&p.path, &["diff", "--cached", "--name-only"]);
+    assert!(!String::from_utf8_lossy(&diff.stdout).contains("-leading-dash.txt"));
+}

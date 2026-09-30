@@ -1,10 +1,10 @@
 //! `sgit checkout` - checkout branches recursively across all repos.
 
-use git2::{BranchType, ErrorCode, Repository, build::CheckoutBuilder};
 use std::path::Path;
 
 use crate::RepoTree;
 use crate::error::{Result, SgitError};
+use crate::git::{CheckoutCommand, Repo};
 
 /// Run recursive checkout behavior.
 ///
@@ -36,9 +36,9 @@ pub fn run(branch: Option<&str>, create: Option<&str>, paths: &[String]) -> Resu
     for r in tree.all() {
         let label = r.label();
         let res = if create.is_some() {
-            create_and_checkout(&r.repo, name)
+            create_and_checkout(r, name)
         } else {
-            checkout_existing(&r.repo, name)
+            checkout_existing(r, name)
         };
         match res {
             Ok(CheckoutOutcome::CheckedOut) => println!("[{label}] Checked out '{name}'"),
@@ -64,7 +64,7 @@ fn checkout_paths_from_branch(branch: &str, paths: &[String]) -> Result<()> {
     for filename in paths {
         match tree.resolve_file(filename) {
             None => eprintln!("Error: {filename} is not in any known repo/submodule"),
-            Some((repo, rel)) => match checkout_path_from_branch(&repo.repo, branch, &rel) {
+            Some((repo, rel)) => match checkout_path_from_branch(repo, branch, &rel) {
                 Ok(PathCheckoutOutcome::CheckedOut) => println!(
                     "[{}] Checked out {} from '{}'",
                     repo.label(),
@@ -99,31 +99,13 @@ enum PathCheckoutOutcome {
 /// - `repo`: repository that owns the path.
 /// - `branch`: source branch name.
 /// - `rel`: path relative to `repo` workdir.
-fn checkout_path_from_branch(
-    repo: &Repository,
-    branch: &str,
-    rel: &Path,
-) -> Result<PathCheckoutOutcome> {
-    let br = match repo.find_branch(branch, BranchType::Local) {
-        Ok(b) => b,
-        Err(e) if e.code() == ErrorCode::NotFound => return Ok(PathCheckoutOutcome::MissingBranch),
-        Err(e) => return Err(e.into()),
-    };
+fn checkout_path_from_branch(repo: &Repo, branch: &str, rel: &Path) -> Result<PathCheckoutOutcome> {
+    if !repo.branch_exists(branch) {
+        return Ok(PathCheckoutOutcome::MissingBranch);
+    }
 
-    let commit = br.get().peel_to_commit()?;
-    let tree = commit.tree()?;
-    tree.get_path(rel).map_err(|_| {
-        SgitError::Other(format!(
-            "path '{}' does not exist on branch '{branch}'",
-            rel.display()
-        ))
-    })?;
-
-    let mut co = CheckoutBuilder::new();
-    co.force();
-    co.update_index(true);
-    co.path(rel);
-    repo.checkout_tree(tree.as_object(), Some(&mut co))?;
+    let cmd = CheckoutCommand::paths(Some(branch), vec![rel.to_path_buf()]);
+    repo.git(&cmd)?;
     Ok(PathCheckoutOutcome::CheckedOut)
 }
 
@@ -137,18 +119,11 @@ enum CheckoutOutcome {
 ///
 /// - `repo`: repository whose HEAD is updated.
 /// - `name`: existing local branch name.
-fn checkout_existing(repo: &Repository, name: &str) -> Result<CheckoutOutcome> {
-    let branch = match repo.find_branch(name, BranchType::Local) {
-        Ok(b) => b,
-        Err(e) if e.code() == ErrorCode::NotFound => return Ok(CheckoutOutcome::Missing),
-        Err(e) => return Err(e.into()),
-    };
-    let reference = branch.get();
-    let refname = reference.name().map_err(SgitError::from)?;
-
-    repo.set_head(refname)?;
-    let mut co = CheckoutBuilder::new();
-    repo.checkout_head(Some(&mut co))?;
+fn checkout_existing(repo: &Repo, name: &str) -> Result<CheckoutOutcome> {
+    if !repo.branch_exists(name) {
+        return Ok(CheckoutOutcome::Missing);
+    }
+    repo.git(&CheckoutCommand::branch(name))?;
     Ok(CheckoutOutcome::CheckedOut)
 }
 
@@ -156,21 +131,13 @@ fn checkout_existing(repo: &Repository, name: &str) -> Result<CheckoutOutcome> {
 ///
 /// - `repo`: repository to update.
 /// - `name`: local branch name.
-fn create_and_checkout(repo: &Repository, name: &str) -> Result<CheckoutOutcome> {
-    if let Ok(branch) = repo.find_branch(name, BranchType::Local) {
+fn create_and_checkout(repo: &Repo, name: &str) -> Result<CheckoutOutcome> {
+    if repo.branch_exists(name) {
         // Branch already exists: keep command idempotent and just switch to it.
-        let refname = branch.get().name().map_err(SgitError::from)?;
-        repo.set_head(refname)?;
-        let mut co = CheckoutBuilder::new();
-        repo.checkout_head(Some(&mut co))?;
+        repo.git(&CheckoutCommand::branch(name))?;
         return Ok(CheckoutOutcome::CheckedOut);
     }
 
-    let head = repo.head()?.peel_to_commit()?;
-    let _ = repo.branch(name, &head, false)?;
-    let refname = format!("refs/heads/{name}");
-    repo.set_head(&refname)?;
-    let mut co = CheckoutBuilder::new();
-    repo.checkout_head(Some(&mut co))?;
+    repo.git(&CheckoutCommand::create_branch(name))?;
     Ok(CheckoutOutcome::CreatedAndCheckedOut)
 }

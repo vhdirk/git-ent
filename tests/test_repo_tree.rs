@@ -192,3 +192,103 @@ fn list_status_detects_changes() {
     assert!(!u.is_empty());
     assert!(tree.root.has_changes().unwrap());
 }
+
+#[test]
+/// Git executable configuration is global and cannot be set per repo.
+fn git_executable_is_global_not_per_repo() {
+    let r = common::repo_with_submodules();
+    let tmp = tempfile::tempdir().unwrap();
+    let global_git_bin = tmp.path().join("custom-global-git");
+    let local_git_bin = tmp.path().join("custom-local-git");
+
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::write(&global_git_bin, "#!/bin/sh\nexec git \"$@\"\n").unwrap();
+        std::fs::set_permissions(&global_git_bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+        std::fs::write(&local_git_bin, "#!/bin/sh\nexec git \"$@\"\n").unwrap();
+        std::fs::set_permissions(&local_git_bin, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    // Attempting to set git in repo-local .sgit.toml files must be ignored.
+    std::fs::write(
+        r.main.join(".sgit.toml"),
+        format!("git = \"{}\"\n", local_git_bin.display()),
+    )
+    .unwrap();
+    std::fs::write(
+        r.main.join("sub2/.sgit.toml"),
+        format!("git = \"{}\"\n", local_git_bin.display()),
+    )
+    .unwrap();
+
+    let global_file = tmp.path().join("sgit.toml");
+    std::fs::write(
+        &global_file,
+        format!("git = \"{}\"\n", global_git_bin.display()),
+    )
+    .unwrap();
+
+    let tree = RepoTree::discover_with_global(Some(&r.main), Some(&global_file)).unwrap();
+    assert_eq!(tree.root.git.executable, global_git_bin.as_os_str());
+
+    let sub1_path = std::fs::canonicalize(r.main.join("sub1")).unwrap();
+    let sub2_path = std::fs::canonicalize(r.main.join("sub2")).unwrap();
+
+    let sub1 = tree
+        .submodules
+        .iter()
+        .find(|s| s.workdir == sub1_path)
+        .unwrap();
+    assert_eq!(sub1.git.executable, global_git_bin.as_os_str());
+
+    let sub2 = tree
+        .submodules
+        .iter()
+        .find(|s| s.workdir == sub2_path)
+        .unwrap();
+    // Sub2 must also use global_git_bin, ignoring the local .sgit.toml attempt
+    assert_eq!(sub2.git.executable, global_git_bin.as_os_str());
+}
+
+#[test]
+/// Uninitialized submodules are omitted from discovered tree.
+fn uninitialized_submodule_is_omitted() {
+    let r = common::repo_with_submodules();
+    // De-initialize sub1 so its worktree .git is removed.
+    common::git(&r.main, &["submodule", "deinit", "-f", "sub1"]);
+
+    let tree = tree_at(&r.main);
+    let names: Vec<String> = tree
+        .submodules
+        .iter()
+        .map(|s| {
+            s.workdir
+                .file_name()
+                .unwrap()
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+
+    assert!(!names.contains(&"sub1".to_string()));
+    assert!(names.contains(&"sub2".to_string()));
+}
+
+#[test]
+/// load_root_config_from discovers the outermost root repo even from deep submodules.
+fn load_root_config_from_discovers_outermost_root() {
+    let r = common::nested_submodules();
+    std::fs::write(
+        r.main.join(".sgit.toml"),
+        "[alias]\ncustom-alias = \"status -s\"\n",
+    )
+    .unwrap();
+
+    let deep_leaf = r.main.join("mid/leaf");
+    let cfg = sgit::config::load_root_config_from(&deep_leaf);
+    assert_eq!(
+        cfg.expand_alias("custom-alias"),
+        Some(vec!["status".into(), "-s".into()])
+    );
+}

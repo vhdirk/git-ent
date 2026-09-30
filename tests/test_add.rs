@@ -128,3 +128,29 @@ fn all_and_update_mutually_exclusive() {
     let p = common::plain_repo();
     assert!(common::in_cwd(&p.path, || commands::add::run(&[], true, true)).is_err());
 }
+
+#[test]
+fn add_path_with_spaces() {
+    let p = common::plain_repo();
+    std::fs::write(p.path.join("file with spaces.txt"), "spaces\n").unwrap();
+    common::in_cwd(&p.path, || {
+        commands::add::run(&["file with spaces.txt".into()], false, false)
+    })
+    .unwrap();
+
+    let diff = common::git_out(&p.path, &["diff", "--cached", "--name-only"]);
+    assert!(String::from_utf8_lossy(&diff.stdout).contains("file with spaces.txt"));
+}
+
+#[test]
+fn add_path_with_leading_dash() {
+    let p = common::plain_repo();
+    std::fs::write(p.path.join("-leading-dash.txt"), "dash\n").unwrap();
+    common::in_cwd(&p.path, || {
+        commands::add::run(&["-leading-dash.txt".into()], false, false)
+    })
+    .unwrap();
+
+    let diff = common::git_out(&p.path, &["diff", "--cached", "--name-only"]);
+    assert!(String::from_utf8_lossy(&diff.stdout).contains("-leading-dash.txt"));
+}

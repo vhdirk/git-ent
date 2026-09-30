@@ -11,8 +11,8 @@ creates a commit in every repo that has staged changes, then automatically updat
 cargo install --path .
 ```
 
-Requires a Rust toolchain (1.80+), a C compiler, libgit2, libopenssl and `pkg-config` (needed by `libgit2-sys`).
-A NixOS flake is provided that pins all of this.
+Requires a Rust toolchain (1.80+) and `git` on your `PATH`.
+A NixOS flake is provided that packages `sgit` with `git` wrapped into its runtime environment.
 
 ## Quick start
 

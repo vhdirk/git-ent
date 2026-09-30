@@ -21,7 +21,6 @@ anyhow = "1.0.104"
 clap = { version = "4.5", features = ["derive"] }
 colored = "3.0"
 edit = "0.1"
-git2 = { version = "0.21.0", features = ["cred"] }
 serde = { version = "1.0.229", features = ["derive"] }
 shell-words = "1.1.1"
 tempfile = "3.14"

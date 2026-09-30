@@ -4,13 +4,15 @@
 //! submodules: each submodule is squashed first, then the parent picks up
 //! the moved submodule pointer as part of its own squash commit.
 
-use git2::{BranchType, Oid, Repository, ResetType};
+use std::path::PathBuf;
 
 use crate::RepoTree;
-use crate::commands::reset::reset_to;
-use crate::error::{Result, SgitError};
-use crate::git::signature;
-use crate::repo_tree::{RepoHandle, changed_submodule_paths};
+use crate::error::Result;
+use crate::git::{
+    AddCommand, CommitCommand, CommitSubjectsCommand, MergeBaseCommand, Repo, ResetMode,
+    RevListCountCommand,
+};
+use crate::repo_tree::changed_submodule_paths;
 
 /// Squash commits since merge-base against `branch` in every repo.
 ///
@@ -52,150 +54,89 @@ enum SquashOutcome {
 /// - `r`: repository handle to squash.
 /// - `branch`: target branch used to compute merge-base.
 /// - `message`: optional explicit squash commit message.
-fn squash_one(r: &RepoHandle, branch: &str, message: Option<&str>) -> Result<SquashOutcome> {
-    let repo = &r.repo;
-
-    // Detached → skip.
-    if repo.head_detached().unwrap_or(false) {
+fn squash_one(r: &Repo, branch: &str, message: Option<&str>) -> Result<SquashOutcome> {
+    // Current branch name
+    let Some(current) = r.branch_name() else {
         return Ok(SquashOutcome::Skipped("detached HEAD".into()));
-    }
+    };
 
     // Target branch must exist.
-    if repo.find_branch(branch, BranchType::Local).is_err() {
+    if !r.branch_exists(branch) {
         return Ok(SquashOutcome::Skipped(format!(
             "branch '{branch}' does not exist"
         )));
     }
 
-    // Current branch.
-    let head_ref = repo.head()?;
-    let current = head_ref.shorthand().unwrap_or("").to_string();
     if current == branch {
         return Ok(SquashOutcome::Skipped(format!("already on '{branch}'")));
     }
 
-    let head_oid = head_ref
-        .target()
-        .ok_or_else(|| SgitError::Other("HEAD has no target".into()))?;
-    let branch_oid = repo
-        .find_branch(branch, BranchType::Local)?
-        .get()
-        .target()
-        .ok_or_else(|| SgitError::Other(format!("branch '{branch}' has no target")))?;
-
     // Find merge-base.
-    let base: Oid = match repo.merge_base(head_oid, branch_oid) {
-        Ok(o) => o,
-        Err(_) => {
+    let base = match r.git(&MergeBaseCommand::new("HEAD", branch)) {
+        Ok(b) if !b.is_empty() => b,
+        _ => {
             return Ok(SquashOutcome::Skipped(format!(
                 "no common ancestor with '{branch}'"
             )));
         }
     };
 
-    // Commits to squash = base..HEAD
-    let commits = commits_between(repo, base, head_oid)?;
+    let range = format!("{base}..HEAD");
+    let commits_count = r.git(&RevListCountCommand::new(&range))?;
 
     // Auto-stage any dirty submodule pointers *after* the soft-reset, but
     // first we need the list for this path - query pre-reset too.
-    let has_sub_changes_pre = !changed_submodule_paths(repo)?.is_empty();
+    let has_sub_changes_pre = !changed_submodule_paths(r)?.is_empty();
 
-    if commits.is_empty() {
+    if commits_count == 0 {
         if has_sub_changes_pre {
-            // No own commits to squash, but submodule pointer moved → create
-            // a pointer-only commit on the current branch.
-            record_pointer_commit(repo)?;
+            record_pointer_commit(r)?;
             return Ok(SquashOutcome::PointerOnly);
         }
         return Ok(SquashOutcome::Nothing);
     }
 
-    // Soft-reset to merge-base, keeping the index + worktree as-is.
-    reset_to(repo, &base.to_string(), ResetType::Soft)?;
-
-    // Stage any submodule pointer changes so they land in the squash commit.
-    let subs = changed_submodule_paths(repo)?;
-    if !subs.is_empty() {
-        let mut index = repo.index()?;
-        for p in &subs {
-            index.add_path(std::path::Path::new(p))?;
-        }
-        index.write()?;
-    }
-
-    // Build the squash message.
+    // Build the squash message before moving HEAD.
     let msg = match message {
         Some(m) => m.to_string(),
-        None => default_message(repo, &commits)?,
+        None => {
+            let subjects = r.git(&CommitSubjectsCommand::new(&range))?;
+            format!("Squashed commits:\n\n{}\n", subjects.join("\n"))
+        }
     };
 
+    // Soft-reset to merge-base, keeping the index + worktree as-is.
+    r.reset(ResetMode::Soft, Some(&base))?;
+
+    // Stage any submodule pointer changes so they land in the squash commit.
+    let subs = changed_submodule_paths(r)?;
+    if !subs.is_empty() {
+        r.git(&AddCommand::Paths(subs.iter().map(PathBuf::from).collect()))?;
+    }
+
     // Create the squash commit.
-    let sig = signature(repo)?;
-    let mut index = repo.index()?;
-    let tree_oid = index.write_tree()?;
-    let tree = repo.find_tree(tree_oid)?;
-    let parent = repo.find_commit(base)?;
-    repo.commit(Some("HEAD"), &sig, &sig, &msg, &tree, &[&parent])?;
-    Ok(SquashOutcome::Squashed(commits.len()))
-}
+    r.git(&CommitCommand {
+        message: msg,
+        no_verify: false,
+    })?;
 
-/// Return commit OIDs in `base..head` for one repository.
-///
-/// - `repo`: repository used for revision walk.
-/// - `base`: lower bound (excluded).
-/// - `head`: upper bound (included).
-fn commits_between(repo: &Repository, base: Oid, head: Oid) -> Result<Vec<Oid>> {
-    if base == head {
-        return Ok(Vec::new());
-    }
-    let mut walk = repo.revwalk()?;
-    walk.push(head)?;
-    walk.hide(base)?;
-    let mut out = Vec::new();
-    for oid in walk {
-        out.push(oid?);
-    }
-    Ok(out)
-}
-
-/// Build a default squash message from commit subjects.
-///
-/// - `repo`: repository from which commit metadata is loaded.
-/// - `commits`: commit IDs included in the squash.
-fn default_message(repo: &Repository, commits: &[Oid]) -> Result<String> {
-    let mut lines = Vec::with_capacity(commits.len());
-    for oid in commits {
-        let c = repo.find_commit(*oid)?;
-        let subj = c.summary().ok().flatten().unwrap_or("").to_string();
-        lines.push(format!("* {subj}"));
-    }
-    Ok(format!("Squashed commits:\n\n{}\n", lines.join("\n")))
+    Ok(SquashOutcome::Squashed(commits_count))
 }
 
 /// Create a pointer-only commit when only submodule refs changed.
 ///
 /// - `repo`: parent repo receiving the pointer update commit.
-fn record_pointer_commit(repo: &Repository) -> Result<()> {
-    let changed = changed_submodule_paths(repo)?;
+fn record_pointer_commit(r: &Repo) -> Result<()> {
+    let changed = changed_submodule_paths(r)?;
     if changed.is_empty() {
         return Ok(());
     }
-    let mut index = repo.index()?;
-    for p in &changed {
-        index.add_path(std::path::Path::new(p))?;
-    }
-    index.write()?;
-    let tree_oid = index.write_tree()?;
-    let tree = repo.find_tree(tree_oid)?;
-    let sig = signature(repo)?;
-    let parent = repo.head()?.peel_to_commit()?;
-    repo.commit(
-        Some("HEAD"),
-        &sig,
-        &sig,
-        "Update submodule refs",
-        &tree,
-        &[&parent],
-    )?;
+    r.git(&AddCommand::Paths(
+        changed.iter().map(PathBuf::from).collect(),
+    ))?;
+    r.git(&CommitCommand {
+        message: "Update submodule refs".to_string(),
+        no_verify: false,
+    })?;
     Ok(())
 }

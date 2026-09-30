@@ -7,9 +7,21 @@ use thiserror::Error;
 /// The sgit error type.
 #[derive(Debug, Error)]
 pub enum SgitError {
-    /// A libgit2 call failed.
-    #[error("git2: {0}")]
-    Git2(#[from] git2::Error),
+    /// Failed to execute git process (e.g. executable not found or permission denied).
+    #[error("failed to execute git in {}: {source}", workdir.display())]
+    GitLaunch {
+        workdir: PathBuf,
+        #[source]
+        source: std::io::Error,
+    },
+
+    /// Git command exited with a non-zero status.
+    #[error("git failed in {}: {stderr}", workdir.display())]
+    GitExit {
+        workdir: PathBuf,
+        code: Option<i32>,
+        stderr: String,
+    },
 
     /// An I/O error occurred.
     #[error("io: {0}")]

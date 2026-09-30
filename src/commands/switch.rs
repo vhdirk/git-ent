@@ -1,9 +1,8 @@
 //! `sgit switch` - recursive equivalent of git switch.
 
-use git2::{BranchType, ErrorCode, Repository, build::CheckoutBuilder};
-
 use crate::RepoTree;
 use crate::error::{Result, SgitError};
+use crate::git::{Repo, SwitchCommand};
 
 /// Run recursive `switch` behavior across the full repo tree.
 ///
@@ -27,7 +26,7 @@ pub fn run(
         };
         for r in tree.all() {
             let label = r.label();
-            match detach_to(&r.repo, target) {
+            match detach_to(r, target) {
                 Ok(()) => println!("[{label}] Switched to detached HEAD at '{target}'"),
                 Err(e) => eprintln!("[{label}] Error switching to detached HEAD: {e}"),
             }
@@ -38,7 +37,7 @@ pub fn run(
     if let Some(name) = create {
         for r in tree.all() {
             let label = r.label();
-            match create_and_switch(&r.repo, name, target, false) {
+            match create_and_switch(r, name, target, false) {
                 Ok(SwitchOutcome::CreatedAndSwitched) => {
                     println!("[{label}] Created and switched to '{name}'")
                 }
@@ -53,7 +52,7 @@ pub fn run(
     if let Some(name) = force_create {
         for r in tree.all() {
             let label = r.label();
-            match create_and_switch(&r.repo, name, target, true) {
+            match create_and_switch(r, name, target, true) {
                 Ok(SwitchOutcome::CreatedAndSwitched) => {
                     println!("[{label}] Created and switched to '{name}'")
                 }
@@ -73,7 +72,7 @@ pub fn run(
 
     for r in tree.all() {
         let label = r.label();
-        match switch_existing(&r.repo, branch) {
+        match switch_existing(r, branch) {
             Ok(SwitchOutcome::Switched) => println!("[{label}] Switched to '{branch}'"),
             Ok(SwitchOutcome::Missing) => {
                 eprintln!("[{label}] Warning: branch '{branch}' does not exist")
@@ -96,17 +95,11 @@ enum SwitchOutcome {
 ///
 /// - `repo`: repository whose HEAD should move.
 /// - `branch`: target local branch name.
-fn switch_existing(repo: &Repository, branch: &str) -> Result<SwitchOutcome> {
-    let br = match repo.find_branch(branch, BranchType::Local) {
-        Ok(b) => b,
-        Err(e) if e.code() == ErrorCode::NotFound => return Ok(SwitchOutcome::Missing),
-        Err(e) => return Err(e.into()),
-    };
-
-    let refname = br.get().name().map_err(SgitError::from)?;
-    repo.set_head(refname)?;
-    let mut co = CheckoutBuilder::new();
-    repo.checkout_head(Some(&mut co))?;
+fn switch_existing(repo: &Repo, branch: &str) -> Result<SwitchOutcome> {
+    if !repo.branch_exists(branch) {
+        return Ok(SwitchOutcome::Missing);
+    }
+    repo.git(&SwitchCommand::branch(branch))?;
     Ok(SwitchOutcome::Switched)
 }
 
@@ -117,28 +110,28 @@ fn switch_existing(repo: &Repository, branch: &str) -> Result<SwitchOutcome> {
 /// - `start_point`: optional revision used as new branch start.
 /// - `force`: when `true`, reset existing branch pointer.
 fn create_and_switch(
-    repo: &Repository,
+    repo: &Repo,
     name: &str,
     start_point: Option<&str>,
     force: bool,
 ) -> Result<SwitchOutcome> {
-    let start_commit = match start_point {
-        Some(sp) => repo.revparse_single(sp)?.peel_to_commit()?,
-        None => repo.head()?.peel_to_commit()?,
+    let existed = repo.branch_exists(name);
+    if !force && existed {
+        return Err(SgitError::Other(format!("branch '{name}' already exists")));
+    }
+
+    let cmd = if force {
+        SwitchCommand::force_create(name, start_point)
+    } else {
+        SwitchCommand::create(name, start_point)
     };
 
-    match repo.branch(name, &start_commit, force) {
-        Ok(_) => {
-            let refname = format!("refs/heads/{name}");
-            repo.set_head(&refname)?;
-            let mut co = CheckoutBuilder::new();
-            repo.checkout_head(Some(&mut co))?;
-            Ok(SwitchOutcome::CreatedAndSwitched)
-        }
-        Err(e) if !force && e.code() == ErrorCode::Exists => {
-            Err(SgitError::Other(format!("branch '{name}' already exists")))
-        }
-        Err(e) => Err(e.into()),
+    repo.git(&cmd)?;
+
+    if existed {
+        Ok(SwitchOutcome::Switched)
+    } else {
+        Ok(SwitchOutcome::CreatedAndSwitched)
     }
 }
 
@@ -146,11 +139,6 @@ fn create_and_switch(
 ///
 /// - `repo`: repository to detach.
 /// - `target`: commit-ish resolved to a commit object.
-fn detach_to(repo: &Repository, target: &str) -> Result<()> {
-    let obj = repo.revparse_single(target)?;
-    let commit = obj.peel_to_commit()?;
-    repo.set_head_detached(commit.id())?;
-    let mut co = CheckoutBuilder::new();
-    repo.checkout_head(Some(&mut co))?;
-    Ok(())
+fn detach_to(repo: &Repo, target: &str) -> Result<()> {
+    repo.git(&SwitchCommand::detach(target))
 }

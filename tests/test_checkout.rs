@@ -170,3 +170,76 @@ fn checkout_branch_files_warns_for_missing_branch_in_submodule() {
     })
     .unwrap();
 }
+
+#[test]
+/// Test case for checkout -b idempotency when branch already exists.
+///
+fn checkout_b_is_idempotent_when_branch_already_exists() {
+    let r = common::repo_with_submodules();
+
+    common::in_cwd(&r.main, || {
+        commands::checkout::run(None, Some("topic"), &[])
+    })
+    .unwrap();
+
+    // Running checkout -b topic again should succeed idempotently and remain on topic.
+    common::in_cwd(&r.main, || {
+        commands::checkout::run(None, Some("topic"), &[])
+    })
+    .unwrap();
+
+    let b_main = String::from_utf8_lossy(
+        &common::git_out(&r.main, ["rev-parse", "--abbrev-ref", "HEAD"].as_slice()).stdout,
+    )
+    .trim()
+    .to_string();
+    let b_sub1 = String::from_utf8_lossy(
+        &common::git_out(
+            &r.main.join("sub1"),
+            ["rev-parse", "--abbrev-ref", "HEAD"].as_slice(),
+        )
+        .stdout,
+    )
+    .trim()
+    .to_string();
+
+    assert_eq!(b_main, "topic");
+    assert_eq!(b_sub1, "topic");
+}
+
+#[test]
+/// Test case for checking out paths containing spaces from a branch.
+///
+fn checkout_branch_files_with_spaces_in_submodule() {
+    let r = common::repo_with_submodules();
+    common::in_cwd(&r.main, || commands::branch::run(Some("feature"))).unwrap();
+
+    common::git(
+        &r.main.join("sub1"),
+        ["checkout", "-q", "feature"].as_slice(),
+    );
+    std::fs::write(
+        r.main.join("sub1/my special file.txt"),
+        "feature space version\n",
+    )
+    .unwrap();
+    common::git(
+        &r.main.join("sub1"),
+        ["add", "my special file.txt"].as_slice(),
+    );
+    common::git(
+        &r.main.join("sub1"),
+        ["commit", "-q", "-m", "sub1 space file"].as_slice(),
+    );
+    common::git(&r.main.join("sub1"), ["checkout", "-q", "main"].as_slice());
+
+    common::in_cwd(&r.main, || {
+        commands::checkout::run(Some("feature"), None, &["sub1/my special file.txt".into()])
+    })
+    .unwrap();
+
+    assert_eq!(
+        std::fs::read_to_string(r.main.join("sub1/my special file.txt")).unwrap(),
+        "feature space version\n"
+    );
+}

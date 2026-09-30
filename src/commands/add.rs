@@ -1,11 +1,8 @@
 //! `sgit add` - route paths (from anywhere in the tree) to the right repo.
 
-use std::path::Path;
-
-use git2::{IndexAddOption, Repository};
-
 use crate::RepoTree;
 use crate::error::{Result, SgitError};
+use crate::git::AddCommand;
 
 /// Stage file changes across the repo tree.
 ///
@@ -22,15 +19,15 @@ pub fn run(filenames: &[String], all: bool, update: bool) -> Result<()> {
     let tree = RepoTree::discover(None)?;
 
     if all || update {
+        let cmd = if all {
+            AddCommand::All
+        } else {
+            AddCommand::Update
+        };
         for r in tree.all() {
             let label = r.label();
-            let result = if all {
-                stage_all(&r.repo)
-            } else {
-                stage_update(&r.repo)
-            };
-            match result {
-                Ok(()) => {
+            match r.git(&cmd) {
+                Ok(_) => {
                     let (staged, _, _) = r.list_status()?;
                     if !staged.is_empty() {
                         println!("[{label}] Staged {} file(s)", staged.len());
@@ -53,48 +50,14 @@ pub fn run(filenames: &[String], all: bool, update: bool) -> Result<()> {
             None => {
                 eprintln!("Error: {filename} is not in any known repo/submodule");
             }
-            Some((repo, rel)) => match stage_single(&repo.repo, &rel) {
-                Ok(()) => println!("[{}] Added {}", repo.label(), rel.display()),
-                Err(e) => eprintln!("Error adding {filename}: {e}"),
-            },
+            Some((repo, rel)) => {
+                let cmd = AddCommand::Paths(vec![rel.clone()]);
+                match repo.git(&cmd) {
+                    Ok(_) => println!("[{}] Added {}", repo.label(), rel.display()),
+                    Err(e) => eprintln!("Error adding {filename}: {e}"),
+                }
+            }
         }
     }
-    Ok(())
-}
-
-/// Stage one path - add if it exists, remove if it was deleted.
-fn stage_single(repo: &Repository, rel: &Path) -> Result<()> {
-    let mut index = repo.index()?;
-    let full = repo
-        .workdir()
-        .map(|w| w.join(rel))
-        .unwrap_or_else(|| rel.to_path_buf());
-    if full.exists() {
-        index.add_path(rel)?;
-    } else {
-        index.remove_path(rel)?;
-    }
-    index.write()?;
-    Ok(())
-}
-
-/// `git add -A`: stage untracked + modified, remove deleted tracked files.
-///
-/// - `repo`: repository whose index is updated.
-fn stage_all(repo: &Repository) -> Result<()> {
-    let mut index = repo.index()?;
-    index.add_all(["*"].iter(), IndexAddOption::DEFAULT, None)?;
-    index.update_all(["*"].iter(), None)?;
-    index.write()?;
-    Ok(())
-}
-
-/// `git add -u`: tracked-file changes only (skip untracked).
-///
-/// - `repo`: repository whose index is updated.
-fn stage_update(repo: &Repository) -> Result<()> {
-    let mut index = repo.index()?;
-    index.update_all(["*"].iter(), None)?;
-    index.write()?;
     Ok(())
 }
