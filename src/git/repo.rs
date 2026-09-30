@@ -28,15 +28,15 @@ impl AsRef<Path> for Repo {
 }
 
 impl Repo {
-    /// Execute a Git command in this repository's working directory using its configured Git executable.
-    pub fn git<C: GitCommand>(&self, command: &C) -> Result<C::Output> {
-        command.run(&self.git, self)
-    }
+    // /// Execute a Git command in this repository's working directory using its configured Git executable.
+    // pub fn git<C: GitCommand>(&self, command: &C) -> Result<C::Output> {
+    //     command.run(&self.git, self)
+    // }
 
-    /// Execute a Git command, returning Output even if exit status is non-zero, using its configured Git executable.
-    pub fn try_git<C: GitCommand>(&self, command: &C) -> Result<C::Output> {
-        command.try_run(&self.git, self)
-    }
+    // /// Execute a Git command, returning Output even if exit status is non-zero, using its configured Git executable.
+    // pub fn try_git<C: GitCommand>(&self, command: &C) -> Result<C::Output> {
+    //     command.try_run(&self.git, self)
+    // }
 
     /// Human-readable label (relative path, or `"."` for root).
     pub fn label(&self) -> String {
@@ -158,6 +158,7 @@ impl Repo {
     }
 
     pub fn restore(&self, staged: bool, paths: Vec<PathBuf>) -> Result<()> {
+
         let cmd = RestoreCommand { staged, paths };
         self.git(&cmd)
     }

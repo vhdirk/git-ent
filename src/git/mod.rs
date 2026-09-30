@@ -21,6 +21,7 @@ pub mod status;
 pub mod submodule;
 pub mod switch;
 pub mod symbolic_ref;
+pub mod git;
 
 pub use add::*;
 pub use branch::*;
@@ -40,3 +41,4 @@ pub use status::*;
 pub use submodule::*;
 pub use switch::*;
 pub use symbolic_ref::*;
+pub use git::*;

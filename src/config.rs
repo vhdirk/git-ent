@@ -109,9 +109,6 @@ impl Default for SgitConfig {
 }
 
 impl SgitConfig {
-    pub fn git(&self) -> Git {
-        Git::new(self.git.clone().into())
-    }
 
     /// Load and merge the global configuration file.
     pub fn merge_global(&mut self, path: &Path) {
