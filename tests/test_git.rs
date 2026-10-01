@@ -3,21 +3,22 @@
 mod common;
 
 use sgit::error::SgitError;
-use sgit::git::{run_git, run_git_allow_failure, run_git_with};
-use std::ffi::{OsStr, OsString};
+use sgit::git::run;
+use std::ffi::OsString;
+use std::path::Path;
 
 #[test]
 fn successful_invocation_in_specified_cwd() {
     let repo = common::plain_repo();
     let args = [OsString::from("status")];
-    let output = run_git(&repo.path, &args).expect("git status should succeed");
+    let output = run(&repo.path, &args, false).expect("git status should succeed");
     assert!(output.status.success());
 
     let rev_parse_args = [
         OsString::from("rev-parse"),
         OsString::from("--show-toplevel"),
     ];
-    let rev_parse_out = run_git(&repo.path, &rev_parse_args).expect("rev-parse should succeed");
+    let rev_parse_out = run(&repo.path, &rev_parse_args, false).expect("rev-parse should succeed");
     let stdout = String::from_utf8_lossy(&rev_parse_out.stdout);
     let canonical_repo = repo.path.canonicalize().unwrap();
     let expected = canonical_repo.to_str().unwrap();
@@ -33,7 +34,7 @@ fn distinct_argument_preservation_with_spaces_and_metacharacters() {
         OsString::from("custom.weird-key"),
         OsString::from(weird_value),
     ];
-    run_git(&repo.path, &set_args)
+    run(&repo.path, &set_args, false)
         .expect("setting config key with spaces/metacharacters should succeed");
 
     let get_args = [
@@ -41,7 +42,7 @@ fn distinct_argument_preservation_with_spaces_and_metacharacters() {
         OsString::from("--get"),
         OsString::from("custom.weird-key"),
     ];
-    let output = run_git(&repo.path, &get_args).expect("reading config should succeed");
+    let output = run(&repo.path, &get_args, false).expect("reading config should succeed");
     assert_eq!(String::from_utf8_lossy(&output.stdout).trim(), weird_value);
 
     // Verify leading dashes do not get interpreted as flags
@@ -51,7 +52,7 @@ fn distinct_argument_preservation_with_spaces_and_metacharacters() {
         OsString::from("custom.dash-key"),
         OsString::from(dash_value),
     ];
-    run_git(&repo.path, &set_dash_args)
+    run(&repo.path, &set_dash_args, false)
         .expect("setting config key with leading dash should succeed");
 
     let get_dash_args = [
@@ -60,7 +61,7 @@ fn distinct_argument_preservation_with_spaces_and_metacharacters() {
         OsString::from("custom.dash-key"),
     ];
     let dash_output =
-        run_git(&repo.path, &get_dash_args).expect("reading dash config should succeed");
+        run(&repo.path, &get_dash_args, false).expect("reading dash config should succeed");
     assert_eq!(
         String::from_utf8_lossy(&dash_output.stdout).trim(),
         dash_value
@@ -74,7 +75,7 @@ fn non_zero_exit_includes_repository_context_and_stderr() {
         OsString::from("checkout"),
         OsString::from("non-existent-branch-xyz"),
     ];
-    let result = run_git(&repo.path, &args);
+    let result = run(&repo.path, &args, false);
 
     match &result {
         Err(SgitError::GitExit {
@@ -101,25 +102,21 @@ fn non_zero_exit_includes_repository_context_and_stderr() {
 }
 
 #[test]
-fn unavailable_executable_reports_launch_failure() {
-    let repo = common::plain_repo();
+fn invalid_workdir_reports_launch_failure() {
+    let non_existent = Path::new("/nonexistent-dir-12345");
     let args = [OsString::from("status")];
-    let result = run_git_with(
-        OsStr::new("nonexistent-git-binary-xyz-12345"),
-        &repo.path,
-        &args,
-    );
+    let result = run(non_existent, &args, false);
 
     match &result {
         Err(SgitError::GitLaunch { workdir, .. }) => {
-            assert_eq!(workdir.as_path(), repo.path.as_path());
+            assert_eq!(workdir.as_path(), non_existent);
         }
         other => panic!("expected SgitError::GitLaunch, got {other:?}"),
     }
 
     let err_str = result.unwrap_err().to_string();
     assert!(
-        err_str.contains(&repo.path.display().to_string()),
+        err_str.contains(&non_existent.display().to_string()),
         "error message should contain working directory context: {err_str}"
     );
 }
@@ -131,8 +128,7 @@ fn allow_failure_returns_non_zero_status() {
         OsString::from("checkout"),
         OsString::from("non-existent-branch-xyz"),
     ];
-    let output =
-        run_git_allow_failure(&repo.path, &args).expect("allow_failure should return Ok(Output)");
+    let output = run(&repo.path, &args, true).expect("allow_failure should return Ok(Output)");
     assert!(!output.status.success());
     assert!(String::from_utf8_lossy(&output.stderr).contains("non-existent-branch-xyz"));
 }

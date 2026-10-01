@@ -128,10 +128,7 @@ impl Repo {
             ..Default::default()
         });
 
-        match self.git(&cmd) {
-            Ok(_) => true,
-            Err(_) => false,
-        }
+        self.git(&cmd).is_ok()
     }
 
     /// Return all local branch names in this repository.
@@ -151,10 +148,8 @@ impl Repo {
 
     pub fn submodule_paths(&self) -> Result<Vec<PathBuf>> {
         let cmd = ConfigCmd::Get(crate::git::config::Get {
-            all: true,
-            show_names: true,
             regexp: true,
-            value_pattern: Some(r"^submodule\..*\.path$".into()),
+            name: r"^submodule\..*\.path$".into(),
             file: Some(".gitmodules".into()),
             ..Default::default()
         });
@@ -212,18 +207,17 @@ impl Repo {
                 ..Default::default()
             });
 
-            let sub_path = if let Ok(rev_parse::RevParseOutput::Path(p)) = self.git(&rev_parse_cmd)
-            {
-                p
-            } else {
+            if self.git(&rev_parse_cmd).is_err() {
                 continue;
-            };
+            }
 
             let sub_workdir = fs::canonicalize(&sub_path).unwrap_or(sub_path);
 
-            // Load this submodule's config, inheriting the parent repo's git executable.
+            // Load this submodule's config and merge with parent (sub gets precedence).
             let parent_cfg = &cfg_chain.last().unwrap().1;
-            let sub_cfg = parent_cfg.load_submodule(&sub_workdir);
+            let mut sub_cfg = parent_cfg.clone();
+            let local_cfg = SgitConfig::load(&sub_workdir);
+            sub_cfg.merge(&local_cfg);
 
             let prefix = sub_workdir
                 .strip_prefix(top)
@@ -242,6 +236,28 @@ impl Repo {
             acc.push(sub);
         }
         Ok(())
+    }
+
+    /// Return the submodule paths in this repo whose in-tree HEAD differs from
+    /// the index entry - i.e. the pointer is dirty and wants committing.
+    pub fn changed_submodule_paths(&self) -> Result<Vec<String>> {
+        if !self.workdir.join(".gitmodules").exists() {
+            return Ok(Vec::new());
+        }
+        use crate::git::submodule::{SubmoduleCmd, SubmoduleOutput, SubmoduleState};
+
+        let cmd = SubmoduleCmd::Status(Default::default());
+        match self.git(&cmd)? {
+            SubmoduleOutput::Status(statuses) => {
+                let paths = statuses
+                    .into_iter()
+                    .filter(|s| s.state == SubmoduleState::Modified)
+                    .map(|s| s.path)
+                    .collect();
+                Ok(paths)
+            }
+            _ => Ok(Vec::new()),
+        }
     }
 }
 
@@ -262,7 +278,7 @@ mod tests {
     fn infer_strips_git_suffix() {
         assert_eq!(
             infer_clone_destination("https://example.com/org/my-repo.git"),
-            "my-repo"
+            PathBuf::from("my-repo")
         );
     }
 
@@ -271,7 +287,7 @@ mod tests {
     fn infer_strips_trailing_slash() {
         assert_eq!(
             infer_clone_destination("https://example.com/org/my-repo/"),
-            "my-repo"
+            PathBuf::from("my-repo")
         );
     }
 
@@ -280,7 +296,7 @@ mod tests {
     fn infer_plain_name() {
         assert_eq!(
             infer_clone_destination("https://example.com/org/my-repo"),
-            "my-repo"
+            PathBuf::from("my-repo")
         );
     }
 }

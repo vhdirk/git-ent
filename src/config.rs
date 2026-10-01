@@ -56,7 +56,7 @@ impl RawConfig {
 ///
 /// Built by combining the global config (XDG) with the repo-local `.sgit.toml`.
 /// Exclusions from both sources are unioned.
-#[derive(Debug)]
+#[derive(Debug, Clone, Default)]
 pub struct SgitConfig {
     /// Submodule paths (relative to this repo's workdir) to exclude from all
     /// sgit operations. Paths use forward slashes on all platforms.
@@ -70,18 +70,20 @@ pub struct SgitConfig {
     pub aliases: HashMap<String, String>,
 }
 
-impl Default for SgitConfig {
-    fn default() -> Self {
-        Self {
-            exclude: Vec::new(),
-            aliases: HashMap::new(),
-        }
-    }
-}
-
 impl SgitConfig {
-    /// Load and merge the global config + `repo_workdir/.sgit.toml`.
-    pub fn merge(&mut self, path: &Path) {
+    /// Merge another configuration into `self`.
+    /// Entries in `other` take precedence over existing entries in `self`.
+    pub fn merge(&mut self, other: &SgitConfig) {
+        for entry in &other.exclude {
+            if !self.exclude.contains(entry) {
+                self.exclude.push(entry.clone());
+            }
+        }
+        self.aliases.extend(other.aliases.clone());
+    }
+
+    /// Load and merge configuration from a TOML file at `path`.
+    pub fn merge_file(&mut self, path: &Path) {
         if let Some(raw) = RawConfig::from_file(path) {
             for entry in raw.exclude {
                 if !self.exclude.contains(&entry) {
@@ -97,17 +99,17 @@ impl SgitConfig {
     }
 
     /// Like [`load`] but with an explicit global config path, used in tests.
-    fn load_with_global(repo_dir: &Path, global_path: Option<&Path>) -> Self {
+    pub fn load_with_global(repo_dir: &Path, global_path: Option<&Path>) -> Self {
         let mut config = SgitConfig::default();
 
         // first load the global config
         if let Some(global_path) = global_path {
-            config.merge(global_path);
+            config.merge_file(global_path);
         }
 
-        // then override with
+        // then override with repo-local config
         let local_path = repo_dir.join(REPO_CONFIG_FILE);
-        config.merge(&local_path);
+        config.merge_file(&local_path);
         config
     }
 
@@ -132,13 +134,18 @@ impl SgitConfig {
 /// then loads its config (merged with the global config). Returns an empty
 /// config if no git repo is found or any I/O error occurs.
 pub fn load_root_config() -> SgitConfig {
-    // Find outermost git root by repeatedly discovering from the parent.
     let cwd = match std::env::current_dir() {
         Ok(p) => p,
         Err(_) => return SgitConfig::default(),
     };
-    let mut root = cwd.clone();
-    let mut search = cwd.as_path();
+    load_root_config_from(&cwd)
+}
+
+/// Like [`load_root_config`] but starting from an explicit directory.
+pub fn load_root_config_from(start: &Path) -> SgitConfig {
+    // Find outermost git root by repeatedly discovering from the parent.
+    let mut root = start.to_path_buf();
+    let mut search = start;
     while let Ok(repo) = Repo::discover(search) {
         root = repo.workdir.clone();
         match search.parent() {
@@ -363,5 +370,32 @@ pushmr = "push -o merge_request.create -o merge_request.remove_source_branch -o 
                 "merge_request.merge_when_pipeline_succeeds".to_string()
             ])
         );
+    }
+
+    #[test]
+    /// Submodule config takes precedence when merged with parent config.
+    fn merge_gives_precedence_to_other() {
+        let mut parent = SgitConfig {
+            exclude: vec!["parent/dir".to_string()],
+            aliases: HashMap::from([
+                ("shared".to_string(), "parent-val".to_string()),
+                ("parent_only".to_string(), "p".to_string()),
+            ]),
+        };
+        let sub = SgitConfig {
+            exclude: vec!["sub/dir".to_string()],
+            aliases: HashMap::from([
+                ("shared".to_string(), "sub-val".to_string()),
+                ("sub_only".to_string(), "s".to_string()),
+            ]),
+        };
+
+        parent.merge(&sub);
+
+        assert_eq!(parent.aliases.get("shared").unwrap(), "sub-val");
+        assert_eq!(parent.aliases.get("parent_only").unwrap(), "p");
+        assert_eq!(parent.aliases.get("sub_only").unwrap(), "s");
+        assert!(parent.exclude.contains(&"parent/dir".to_string()));
+        assert!(parent.exclude.contains(&"sub/dir".to_string()));
     }
 }

@@ -14,6 +14,19 @@ pub enum ChangeKind {
     TypeChange,
 }
 
+impl ChangeKind {
+    /// Left-padded label matching `git status` output.
+    pub fn label(&self) -> &'static str {
+        match self {
+            ChangeKind::New => "new file:   ",
+            ChangeKind::Modified => "modified:   ",
+            ChangeKind::Deleted => "deleted:    ",
+            ChangeKind::Renamed => "renamed:    ",
+            ChangeKind::TypeChange => "typechange: ",
+        }
+    }
+}
+
 /// A single status entry for a file.
 #[derive(Debug, Clone)]
 pub struct StatusEntry {
@@ -22,14 +35,14 @@ pub struct StatusEntry {
     pub path: String,
 }
 
-fn parse_change_kind(x: char) -> ChangeKind {
+fn parse_change_kind(x: char) -> Option<ChangeKind> {
     match x {
-        'A' => ChangeKind::New,
-        'M' => ChangeKind::Modified,
-        'D' => ChangeKind::Deleted,
-        'R' => ChangeKind::Renamed,
-        'T' => ChangeKind::TypeChange,
-        _ => ChangeKind::Modified, // default fallback
+        'A' => Some(ChangeKind::New),
+        'M' => Some(ChangeKind::Modified),
+        'D' => Some(ChangeKind::Deleted),
+        'R' => Some(ChangeKind::Renamed),
+        'T' => Some(ChangeKind::TypeChange),
+        _ => None,
     }
 }
 
@@ -89,15 +102,16 @@ impl ParseOutput for StatusCmd {
                     let x = xy.chars().next().unwrap_or('.');
                     let y = xy.chars().nth(1).unwrap_or('.');
 
-                    let x_kind = parse_change_kind(x);
-                    let y_kind = parse_change_kind(y);
+                    if let Some(x_kind) = parse_change_kind(x) {
+                        staged.push(StatusEntry {
+                            kind: x_kind,
+                            path: path.clone(),
+                        });
+                    }
 
-                    staged.push(StatusEntry {
-                        kind: x_kind,
-                        path: path.clone(),
-                    });
-
-                    unstaged.push(StatusEntry { kind: y_kind, path });
+                    if let Some(y_kind) = parse_change_kind(y) {
+                        unstaged.push(StatusEntry { kind: y_kind, path });
+                    }
                 }
             } else if let Some(rest) = s.strip_prefix("2 ") {
                 // Renamed/copied entry: 2 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <Xscore> <path>
@@ -109,18 +123,16 @@ impl ParseOutput for StatusCmd {
                     let x = xy.chars().next().unwrap_or('.');
                     let y = xy.chars().nth(1).unwrap_or('.');
 
-                    let x_kind = parse_change_kind(x);
-                    let y_kind = parse_change_kind(y);
+                    if let Some(x_kind) = parse_change_kind(x) {
+                        staged.push(StatusEntry {
+                            kind: x_kind,
+                            path: path.clone(),
+                        });
+                    }
 
-                    staged.push(StatusEntry {
-                        kind: x_kind,
-                        path: path.clone(),
-                    });
-
-                    unstaged.push(StatusEntry {
-                        kind: y_kind,
-                        path: path.clone(),
-                    });
+                    if let Some(y_kind) = parse_change_kind(y) {
+                        unstaged.push(StatusEntry { kind: y_kind, path });
+                    }
                 }
             } else if let Some(path) = s.strip_prefix("? ") {
                 untracked.push(StatusEntry {

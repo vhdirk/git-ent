@@ -32,10 +32,7 @@ fn clone_with_explicit_dest() {
     let dest = tmp.path().join("cloned");
 
     common::in_cwd(tmp.path(), || {
-        commands::clone::run(
-            &src.display().to_string(),
-            Some(&dest.display().to_string()),
-        )
+        commands::clone::run(&src.display().to_string(), Some(&dest))
     })
     .unwrap();
 

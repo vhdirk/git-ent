@@ -130,8 +130,9 @@ impl ParseOutput for CommitCmd {
             }
         }
 
-        Err(SgitError::ParseError(
-            format!("unexpected commit output format: {}", stdout).into(),
-        ))
+        Err(SgitError::ParseError(format!(
+            "unexpected commit output format: {}",
+            stdout
+        )))
     }
 }

@@ -7,9 +7,7 @@ use std::path::{Path, PathBuf};
 use crate::Repo;
 use crate::config::SgitConfig;
 use crate::error::Result;
-use crate::git::GitCmd;
 use crate::git::add::AddCmd;
-use crate::git::rev_parse::{self, RevParseCmd};
 use crate::git::status::StatusEntry;
 
 /// Join `prefix` and `path` for display (drops the empty prefix cleanly).
@@ -42,32 +40,10 @@ impl RepoTree {
             Some(p) => p.to_path_buf(),
             None => std::env::current_dir()?,
         };
-        let mut global_cfg = SgitConfig::default();
-        if let Some(gp) = global_path {
-            global_cfg.merge_global(gp);
-        }
-
-        // Find the top-level repo workdir containing `cwd`.
-        let revparse_output = RevParseCmd::Parse(rev_parse::Parse {
-            items: vec![rev_parse::Item::Query(rev_parse::RepoQuery::ShowToplevel)],
-            ..Default::default()
-        })
-        .run(&cwd)?;
-
-        // fs::canonicalize normalises symlinks; we want a stable top dir.
-        let workdir = if let rev_parse::RevParseOutput::Path(path_buf) = revparse_output {
-            path_buf
-        } else {
-            return Err(crate::SgitError::ParseError("unexpected return".into()));
-        };
-
-        let top = fs::canonicalize(&workdir).unwrap_or(workdir);
+        let root = Repo::discover(&cwd)?;
+        let top = root.workdir.clone();
         let root_cfg = SgitConfig::load_with_global(&top, global_path);
 
-        let root = Repo {
-            workdir: top.clone(),
-            prefix: PathBuf::from("."),
-        };
         let mut submodules = Vec::new();
         let mut cfg_chain = vec![(top.clone(), root_cfg)];
         root.collect_submodules(&top, &mut cfg_chain, &mut submodules)?;
@@ -208,8 +184,5 @@ impl RepoTree {
 /// Return the submodule paths in `repo` whose in-tree HEAD differs from
 /// the index entry - i.e. the pointer is dirty and wants committing.
 pub fn changed_submodule_paths(repo: &Repo) -> Result<Vec<String>> {
-    if !repo.workdir.join(".gitmodules").exists() {
-        return Ok(Vec::new());
-    }
-    repo.try_git(&ChangedSubmodulesCommand)
+    repo.changed_submodule_paths()
 }

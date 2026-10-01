@@ -4,8 +4,8 @@ use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
 
+use crate::commands;
 use crate::error::Result;
-use crate::{SgitError, commands};
 
 /// sgit (/ʃɪt/) - manage projects with (nested) git submodules.
 #[derive(Debug, Parser)]

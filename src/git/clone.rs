@@ -2,22 +2,10 @@ use crate::error::Result;
 use crate::git::ParseOutput;
 use crate::git::ToArgs;
 use std::ffi::OsString;
-use std::path::Path;
 use std::path::PathBuf;
 use std::process::Output;
 
 // TODO: map full command-line interface for `git clone`
-
-fn to_canonical_absolute_path(path: &Path) -> Result<PathBuf> {
-    let canonical = path.canonicalize()?;
-    if canonical.is_absolute() {
-        Ok(canonical)
-    } else {
-        let mut current = std::env::current_dir()?;
-        current.push(&canonical);
-        Ok(current)
-    }
-}
 
 pub struct CloneCmd {
     pub url: String,

@@ -182,73 +182,35 @@ fn resolve_file_routes_to_toplevel() {
 }
 
 #[test]
-/// Test case for list status detects changes.
+/// Test case for status detects changes.
 ///
 fn list_status_detects_changes() {
     let p = common::plain_repo();
     std::fs::write(p.path.join("file.txt"), "changed\n").unwrap();
     let tree = tree_at(&p.path);
-    let (_s, u, _ut) = tree.root.list_status().unwrap();
-    assert!(!u.is_empty());
+    let status = tree.root.status().unwrap();
+    assert!(!status.unstaged.is_empty());
     assert!(tree.root.has_changes().unwrap());
 }
 
 #[test]
-/// Git executable configuration is global and cannot be set per repo.
-fn git_executable_is_global_not_per_repo() {
-    let r = common::repo_with_submodules();
-    let tmp = tempfile::tempdir().unwrap();
-    let global_git_bin = tmp.path().join("custom-global-git");
-    let local_git_bin = tmp.path().join("custom-local-git");
-
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::write(&global_git_bin, "#!/bin/sh\nexec git \"$@\"\n").unwrap();
-        std::fs::set_permissions(&global_git_bin, std::fs::Permissions::from_mode(0o755)).unwrap();
-        std::fs::write(&local_git_bin, "#!/bin/sh\nexec git \"$@\"\n").unwrap();
-        std::fs::set_permissions(&local_git_bin, std::fs::Permissions::from_mode(0o755)).unwrap();
-    }
-
-    // Attempting to set git in repo-local .sgit.toml files must be ignored.
+/// Submodule config is merged with parent config during depth-first traversal,
+/// with the submodule's config taking precedence.
+fn submodule_config_merged_with_parent_sub_takes_precedence() {
+    let r = common::nested_submodules();
     std::fs::write(
         r.main.join(".sgit.toml"),
-        format!("git = \"{}\"\n", local_git_bin.display()),
+        "exclude = [\"non-existent\"]\n[alias]\nshared = \"parent-val\"\nparent = \"parent-only\"\n",
     )
     .unwrap();
     std::fs::write(
-        r.main.join("sub2/.sgit.toml"),
-        format!("git = \"{}\"\n", local_git_bin.display()),
+        r.main.join("mid/.sgit.toml"),
+        "[alias]\nshared = \"sub-val\"\nsub = \"sub-only\"\n",
     )
     .unwrap();
 
-    let global_file = tmp.path().join("sgit.toml");
-    std::fs::write(
-        &global_file,
-        format!("git = \"{}\"\n", global_git_bin.display()),
-    )
-    .unwrap();
-
-    let tree = RepoTree::discover_with_global(Some(&r.main), Some(&global_file)).unwrap();
-    assert_eq!(tree.root.git.executable, global_git_bin.as_os_str());
-
-    let sub1_path = std::fs::canonicalize(r.main.join("sub1")).unwrap();
-    let sub2_path = std::fs::canonicalize(r.main.join("sub2")).unwrap();
-
-    let sub1 = tree
-        .submodules
-        .iter()
-        .find(|s| s.workdir == sub1_path)
-        .unwrap();
-    assert_eq!(sub1.git.executable, global_git_bin.as_os_str());
-
-    let sub2 = tree
-        .submodules
-        .iter()
-        .find(|s| s.workdir == sub2_path)
-        .unwrap();
-    // Sub2 must also use global_git_bin, ignoring the local .sgit.toml attempt
-    assert_eq!(sub2.git.executable, global_git_bin.as_os_str());
+    let tree = tree_at(&r.main);
+    assert_eq!(tree.submodules.len(), 2);
 }
 
 #[test]

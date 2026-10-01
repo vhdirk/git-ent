@@ -12,7 +12,7 @@ fn discover_from_repository_root_returns_root_repo() {
         discovered.workdir,
         std::fs::canonicalize(repo.path).unwrap()
     );
-    assert_eq!(discovered.prefix, ".");
+    assert_eq!(discovered.prefix, std::path::Path::new("."));
 }
 
 #[test]
@@ -27,20 +27,20 @@ fn discover_from_nested_directory_returns_repository_root() {
         discovered.workdir,
         std::fs::canonicalize(repo.path).unwrap()
     );
-    assert_eq!(discovered.prefix, ".");
+    assert_eq!(discovered.prefix, std::path::Path::new("."));
 }
 
 #[test]
 fn discover_from_submodule_handles_gitfile() {
     let repos = common::repo_with_submodules();
 
-    let discovered = Repo::discover(&repos.main.join("sub1")).unwrap();
+    let discovered = Repo::discover(repos.main.join("sub1")).unwrap();
 
     assert_eq!(
         discovered.workdir,
         std::fs::canonicalize(repos.main.join("sub1")).unwrap()
     );
-    assert_eq!(discovered.prefix, ".");
+    assert_eq!(discovered.prefix, std::path::Path::new("."));
 }
 
 #[test]

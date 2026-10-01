@@ -151,7 +151,7 @@ fn create_and_checkout(repo: &Repo, name: &str) -> Result<CheckoutOutcome> {
     }
 
     repo.git(&CheckoutCmd::Switch {
-        target: Some(name.into()),
+        target: None,
         create: Some(name.into()),
     })?;
     Ok(CheckoutOutcome::CreatedAndCheckedOut)

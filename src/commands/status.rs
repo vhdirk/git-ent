@@ -9,19 +9,6 @@ use crate::error::Result;
 use crate::git::status::ChangeKind;
 use crate::repo_tree::prefix_path;
 
-impl ChangeKind {
-    /// Left-padded label matching `git status` output.
-    pub fn label(&self) -> &'static str {
-        match self {
-            ChangeKind::New => "new file:   ",
-            ChangeKind::Modified => "modified:   ",
-            ChangeKind::Deleted => "deleted:    ",
-            ChangeKind::Renamed => "renamed:    ",
-            ChangeKind::TypeChange => "typechange: ",
-        }
-    }
-}
-
 /// Print a consolidated git-style status across all repos/submodules.
 pub fn run() -> Result<()> {
     let tree = RepoTree::discover(None)?;

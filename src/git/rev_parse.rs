@@ -3,7 +3,7 @@ use std::path::PathBuf;
 use std::process::Output;
 
 use crate::error::Result;
-use crate::git::{GitCmd, ParseOutput, ToArgs};
+use crate::git::{ParseOutput, ToArgs};
 
 #[derive(Default)]
 pub struct ParseOpt {

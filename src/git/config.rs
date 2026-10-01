@@ -58,19 +58,20 @@ pub struct Get {
 
 impl ToArgs for Get {
     fn to_args(&self, args: &mut Vec<OsString>) {
-        if self.all {
-            args.push("--all".into());
-        }
-        if self.show_names {
-            args.push("--show-names".into());
-        }
-        if self.regexp {
-            args.push("--regexp".into());
-        }
-        self.scope.to_args(args);
         push_file(args, &self.file);
+        self.scope.to_args(args);
 
-        args.push(self.name.as_str().into());
+        if self.regexp {
+            args.push("--get-regexp".into());
+        } else if self.all {
+            args.push("--get-all".into());
+        } else {
+            args.push("--get".into());
+        }
+
+        if !self.name.is_empty() {
+            args.push(self.name.as_str().into());
+        }
         if let Some(vp) = &self.value_pattern {
             args.push(vp.into());
         }
@@ -159,15 +160,33 @@ impl ToArgs for ConfigCmd {
 impl ParseOutput for ConfigCmd {
     type Output = ConfigOutput;
 
+    fn allow_failure(&self) -> bool {
+        true
+    }
+
     fn parse_output(&self, output: &Output) -> Result<Self::Output> {
-        // Note: git config returns exit code 1 if a key is not found during a get/unset query.
-        // You can handle code 1 specially if "not found" is a valid expected state in your app.
-        // if !output.status.success() {
-        //     return Err(crate::Error::GitCommandFailed {
-        //         status: output.status,
-        //         stderr: String::from_utf8_lossy(&output.stderr).to_string(),
-        //     });
-        // }
+        // Exit code 1 for git config means the requested variable was not found,
+        // which is a normal non-error condition.
+        if !output.status.success() {
+            return match self {
+                Self::List(_) => Ok(ConfigOutput::Entries(Vec::new())),
+                Self::Get(g) => {
+                    if g.all || g.regexp {
+                        Ok(ConfigOutput::Values(Vec::new()))
+                    } else {
+                        Ok(ConfigOutput::Value(String::new()))
+                    }
+                }
+                Self::Set(_) | Self::Add(_) | Self::Unset(_) => {
+                    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
+                    Err(crate::SgitError::GitExit {
+                        workdir: std::env::current_dir().unwrap_or_default(),
+                        code: output.status.code(),
+                        stderr,
+                    })
+                }
+            };
+        }
 
         let stdout = &output.stdout;
 
@@ -186,7 +205,7 @@ impl ParseOutput for ConfigCmd {
                         entries.push((key, val));
                     }
                 }
-                return Ok(ConfigOutput::Entries(entries));
+                Ok(ConfigOutput::Entries(entries))
             }
             Self::Get(g) => {
                 let mut values = Vec::new();
@@ -194,14 +213,23 @@ impl ParseOutput for ConfigCmd {
                     if val_bytes.is_empty() {
                         continue;
                     }
-                    values.push(String::from_utf8_lossy(val_bytes).to_string());
+                    if g.regexp {
+                        // In -z mode with --get-regexp, each entry is key\nvalue
+                        if let Some(pos) = val_bytes.iter().position(|&b| b == b'\n') {
+                            values.push(String::from_utf8_lossy(&val_bytes[pos + 1..]).to_string());
+                        } else {
+                            values.push(String::from_utf8_lossy(val_bytes).to_string());
+                        }
+                    } else {
+                        values.push(String::from_utf8_lossy(val_bytes).to_string());
+                    }
                 }
-                if g.all {
-                    return Ok(ConfigOutput::Values(values));
+                if g.all || g.regexp {
+                    Ok(ConfigOutput::Values(values))
                 } else {
-                    return Ok(ConfigOutput::Value(
+                    Ok(ConfigOutput::Value(
                         values.into_iter().next().unwrap_or_default(),
-                    ));
+                    ))
                 }
             }
             Self::Set(_) | Self::Add(_) | Self::Unset(_) => Ok(ConfigOutput::Success),

@@ -22,7 +22,7 @@ pub use command::{GitCmd, ParseOutput, ToArgs};
 const GIT: &str = "git";
 
 /// Internal helper to execute a Git binary with arguments in a given working directory.
-pub(crate) fn run<I, S>(cwd: &Path, args: I, allow_failure: bool) -> Result<Output>
+pub fn run<I, S>(cwd: &Path, args: I, allow_failure: bool) -> Result<Output>
 where
     I: IntoIterator<Item = S>,
     S: AsRef<OsStr>,
@@ -50,9 +50,9 @@ where
     } else {
         stderr_raw
     };
-    return Err(SgitError::GitExit {
+    Err(SgitError::GitExit {
         workdir: cwd.to_path_buf(),
         code: output.status.code(),
         stderr,
-    });
+    })
 }
