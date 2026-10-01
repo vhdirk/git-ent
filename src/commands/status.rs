@@ -6,8 +6,21 @@ use colored::Colorize;
 
 use crate::RepoTree;
 use crate::error::Result;
-use crate::git::ChangeKind;
+use crate::git::status::ChangeKind;
 use crate::repo_tree::prefix_path;
+
+impl ChangeKind {
+    /// Left-padded label matching `git status` output.
+    pub fn label(&self) -> &'static str {
+        match self {
+            ChangeKind::New => "new file:   ",
+            ChangeKind::Modified => "modified:   ",
+            ChangeKind::Deleted => "deleted:    ",
+            ChangeKind::Renamed => "renamed:    ",
+            ChangeKind::TypeChange => "typechange: ",
+        }
+    }
+}
 
 /// Print a consolidated git-style status across all repos/submodules.
 pub fn run() -> Result<()> {
@@ -23,14 +36,14 @@ pub fn run() -> Result<()> {
         } else {
             r.prefix.clone()
         };
-        let (staged, unstaged, untracked) = r.list_status()?;
-        for s in staged {
+        let status = r.status()?;
+        for s in status.staged {
             all_staged.push((s.kind, prefix_path(&prefix, &s.path)));
         }
-        for u in unstaged {
+        for u in status.unstaged {
             all_unstaged.push((u.kind, prefix_path(&prefix, &u.path)));
         }
-        for u in untracked {
+        for u in status.untracked {
             all_untracked.push(prefix_path(&prefix, &u.path));
         }
     }

@@ -1,9 +1,11 @@
 //! The `clap`-derived CLI surface for sgit.
 
+use std::path::PathBuf;
+
 use clap::{Parser, Subcommand};
 
-use crate::commands;
 use crate::error::Result;
+use crate::{SgitError, commands};
 
 /// sgit (/ʃɪt/) - manage projects with (nested) git submodules.
 #[derive(Debug, Parser)]
@@ -20,7 +22,7 @@ pub enum Command {
         /// The repository URL.
         url: String,
         /// Destination directory (inferred from URL if omitted).
-        dest: Option<String>,
+        dest: Option<PathBuf>,
     },
 
     /// Initialize and update all submodules recursively.
@@ -141,7 +143,7 @@ pub enum Command {
 pub fn run(cli: Cli) -> Result<()> {
     match cli.command {
         Command::Clone { url, dest } => commands::clone::run(&url, dest.as_deref()),
-        Command::Update => commands::update::run(),
+        // Command::Update => commands::update::run(),
         Command::Status => commands::status::run(),
         Command::Branch { create } => commands::branch::run(create.as_deref()),
         Command::Checkout {
@@ -149,17 +151,17 @@ pub fn run(cli: Cli) -> Result<()> {
             branch,
             paths,
         } => commands::checkout::run(branch.as_deref(), create.as_deref(), &paths),
-        Command::Switch {
-            create,
-            force_create,
-            detach,
-            target,
-        } => commands::switch::run(
-            target.as_deref(),
-            create.as_deref(),
-            force_create.as_deref(),
-            detach,
-        ),
+        // Command::Switch {
+        //     create,
+        //     force_create,
+        //     detach,
+        //     target,
+        // } => commands::switch::run(
+        //     target.as_deref(),
+        //     create.as_deref(),
+        //     force_create.as_deref(),
+        //     detach,
+        // ),
         Command::Add {
             filenames,
             all,
@@ -168,11 +170,14 @@ pub fn run(cli: Cli) -> Result<()> {
         Command::Commit { message, no_verify } => {
             commands::commit::run(message.as_deref(), no_verify)
         }
-        Command::Push { push_option } => commands::push::run(&push_option),
-        Command::Restore { filenames, staged } => commands::restore::run(&filenames, staged),
-        Command::Reset { ref_, hard } => commands::reset::run(ref_.as_deref(), hard),
-        Command::Merge { branch } => commands::merge::run(&branch),
-        Command::Rebase { branch } => commands::rebase::run(&branch),
-        Command::Squash { branch, message } => commands::squash::run(&branch, message.as_deref()),
+        // Command::Push { push_option } => commands::push::run(&push_option),
+        // Command::Restore { filenames, staged } => commands::restore::run(&filenames, staged),
+        // Command::Reset { ref_, hard } => commands::reset::run(ref_.as_deref(), hard),
+        // Command::Merge { branch } => commands::merge::run(&branch),
+        // Command::Rebase { branch } => commands::rebase::run(&branch),
+        // Command::Squash { branch, message } => commands::squash::run(&branch, message.as_deref()),
+        _ => {
+            unimplemented!("This command is not yet implemented")
+        }
     }
 }

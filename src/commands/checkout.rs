@@ -2,9 +2,9 @@
 
 use std::path::Path;
 
-use crate::RepoTree;
 use crate::error::{Result, SgitError};
-use crate::git::{CheckoutCommand, Repo};
+use crate::git::checkout::CheckoutCmd;
+use crate::{Repo, RepoTree};
 
 /// Run recursive checkout behavior.
 ///
@@ -104,8 +104,11 @@ fn checkout_path_from_branch(repo: &Repo, branch: &str, rel: &Path) -> Result<Pa
         return Ok(PathCheckoutOutcome::MissingBranch);
     }
 
-    let cmd = CheckoutCommand::paths(Some(branch), vec![rel.to_path_buf()]);
-    repo.git(&cmd)?;
+    repo.git(&CheckoutCmd::Restore {
+        target: Some(branch.into()),
+        paths: vec![rel.to_path_buf()],
+    })?;
+
     Ok(PathCheckoutOutcome::CheckedOut)
 }
 
@@ -123,7 +126,12 @@ fn checkout_existing(repo: &Repo, name: &str) -> Result<CheckoutOutcome> {
     if !repo.branch_exists(name) {
         return Ok(CheckoutOutcome::Missing);
     }
-    repo.git(&CheckoutCommand::branch(name))?;
+
+    repo.git(&CheckoutCmd::Switch {
+        target: Some(name.into()),
+        create: None,
+    })?;
+
     Ok(CheckoutOutcome::CheckedOut)
 }
 
@@ -134,10 +142,17 @@ fn checkout_existing(repo: &Repo, name: &str) -> Result<CheckoutOutcome> {
 fn create_and_checkout(repo: &Repo, name: &str) -> Result<CheckoutOutcome> {
     if repo.branch_exists(name) {
         // Branch already exists: keep command idempotent and just switch to it.
-        repo.git(&CheckoutCommand::branch(name))?;
+        repo.git(&CheckoutCmd::Switch {
+            target: Some(name.into()),
+            create: None,
+        })?;
+
         return Ok(CheckoutOutcome::CheckedOut);
     }
 
-    repo.git(&CheckoutCommand::create_branch(name))?;
+    repo.git(&CheckoutCmd::Switch {
+        target: Some(name.into()),
+        create: Some(name.into()),
+    })?;
     Ok(CheckoutOutcome::CreatedAndCheckedOut)
 }

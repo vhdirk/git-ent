@@ -1,7 +1,9 @@
-//! Git CLI command wrappers.
-//!
-//! High-level command modules construct typed [`GitCommand`] objects that
-//! execute through the local `git` process boundary.
+use crate::error::{Result, SgitError};
+use std::{
+    ffi::OsStr,
+    path::Path,
+    process::{Command, Output},
+};
 
 pub mod add;
 pub mod branch;
@@ -9,36 +11,48 @@ pub mod checkout;
 pub mod clone;
 pub mod command;
 pub mod commit;
-pub mod merge;
-pub mod push;
-pub mod rebase;
-pub mod remotes;
-pub mod repo;
-pub mod reset;
-pub mod restore;
+pub mod config;
 pub mod rev_parse;
+pub mod show_ref;
 pub mod status;
 pub mod submodule;
-pub mod switch;
 pub mod symbolic_ref;
-pub mod git;
+pub use command::{GitCmd, ParseOutput, ToArgs};
 
-pub use add::*;
-pub use branch::*;
-pub use checkout::*;
-pub use clone::*;
-pub use command::*;
-pub use commit::*;
-pub use merge::*;
-pub use push::*;
-pub use rebase::*;
-pub use remotes::*;
-pub use repo::*;
-pub use reset::*;
-pub use restore::*;
-pub use rev_parse::*;
-pub use status::*;
-pub use submodule::*;
-pub use switch::*;
-pub use symbolic_ref::*;
-pub use git::*;
+const GIT: &str = "git";
+
+/// Internal helper to execute a Git binary with arguments in a given working directory.
+pub(crate) fn run<I, S>(cwd: &Path, args: I, allow_failure: bool) -> Result<Output>
+where
+    I: IntoIterator<Item = S>,
+    S: AsRef<OsStr>,
+{
+    let output = Command::new(GIT)
+        .args(args)
+        .current_dir(cwd)
+        .output()
+        // return error when the Git command itself could not be launched
+        .map_err(|source| SgitError::GitLaunch {
+            workdir: cwd.to_path_buf(),
+            source,
+        })?;
+
+    if output.status.success() || allow_failure {
+        return Ok(output);
+    }
+
+    let stderr_raw = String::from_utf8_lossy(&output.stderr).trim().to_string();
+    let stderr = if stderr_raw.is_empty() {
+        match output.status.code() {
+            Some(code) => format!("command exited with code {code}"),
+            None => "command terminated by signal".to_string(),
+        }
+    } else {
+        stderr_raw
+    };
+    return Err(SgitError::GitExit {
+        workdir: cwd.to_path_buf(),
+        code: output.status.code(),
+        stderr,
+    });
+}

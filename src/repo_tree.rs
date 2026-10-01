@@ -4,10 +4,13 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use crate::Repo;
 use crate::config::SgitConfig;
 use crate::error::Result;
-use crate::git::{AddCommand, ChangedSubmodulesCommand, Git, GitCommand, RevParseCommand};
-pub use crate::git::{ChangeKind, Repo, Repo as RepoHandle, StatusEntry};
+use crate::git::GitCmd;
+use crate::git::add::AddCmd;
+use crate::git::rev_parse::{self, RevParseCmd};
+use crate::git::status::StatusEntry;
 
 /// Join `prefix` and `path` for display (drops the empty prefix cleanly).
 pub(crate) fn prefix_path(prefix: &Path, path: &str) -> String {
@@ -43,18 +46,27 @@ impl RepoTree {
         if let Some(gp) = global_path {
             global_cfg.merge_global(gp);
         }
-        let git = Git::new(global_cfg.git.clone().into());
 
         // Find the top-level repo workdir containing `cwd`.
-        let workdir = RevParseCommand::toplevel().run(&git, &cwd)?;
+        let revparse_output = RevParseCmd::Parse(rev_parse::Parse {
+            items: vec![rev_parse::Item::Query(rev_parse::RepoQuery::ShowToplevel)],
+            ..Default::default()
+        })
+        .run(&cwd)?;
+
         // fs::canonicalize normalises symlinks; we want a stable top dir.
+        let workdir = if let rev_parse::RevParseOutput::Path(path_buf) = revparse_output {
+            path_buf
+        } else {
+            return Err(crate::SgitError::ParseError("unexpected return".into()));
+        };
+
         let top = fs::canonicalize(&workdir).unwrap_or(workdir);
         let root_cfg = SgitConfig::load_with_global(&top, global_path);
 
         let root = Repo {
             workdir: top.clone(),
             prefix: PathBuf::from("."),
-            git,
         };
         let mut submodules = Vec::new();
         let mut cfg_chain = vec![(top.clone(), root_cfg)];
@@ -113,9 +125,7 @@ impl RepoTree {
     pub fn stage_submodule_pointers(&self, r: &Repo) -> Result<Vec<String>> {
         let changed = changed_submodule_paths(r)?;
         if !changed.is_empty() {
-            r.git(&AddCommand::Paths(
-                changed.iter().map(PathBuf::from).collect(),
-            ))?;
+            r.git(&AddCmd::Paths(changed.iter().map(PathBuf::from).collect()))?;
         }
         Ok(changed)
     }
@@ -147,22 +157,22 @@ impl RepoTree {
             } else {
                 r.prefix.clone()
             };
-            let (s, u, ut) = r.list_status()?;
-            for e in s {
+            let status = r.status()?;
+            for e in &status.staged {
                 staged.push(StatusEntry {
-                    kind: e.kind,
+                    kind: e.kind.clone(),
                     path: prefix_path(&prefix, &e.path),
                 });
             }
-            for e in u {
+            for e in &status.unstaged {
                 unstaged.push(StatusEntry {
-                    kind: e.kind,
+                    kind: e.kind.clone(),
                     path: prefix_path(&prefix, &e.path),
                 });
             }
-            for e in ut {
+            for e in &status.untracked {
                 untracked.push(StatusEntry {
-                    kind: e.kind,
+                    kind: e.kind.clone(),
                     path: prefix_path(&prefix, &e.path),
                 });
             }

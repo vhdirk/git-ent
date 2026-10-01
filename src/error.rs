@@ -51,6 +51,10 @@ pub enum SgitError {
     #[error("aborting commit due to empty commit message")]
     EmptyCommitMessage,
 
+    /// Failed to parse some expected input.
+    #[error("parse error: {0}")]
+    ParseError(String),
+
     /// A generic, message-only error.
     #[error("{0}")]
     Other(String),

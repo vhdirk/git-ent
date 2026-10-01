@@ -1,8 +1,8 @@
-use std::ffi::OsString;
-use std::process::Output;
+use std::{ffi::OsString, process::Output};
 
-use crate::error::Result;
-use crate::git::GitCommand;
+use crate::git::{ParseOutput, ToArgs};
+
+// TODO: map full command-line interface for `git status`
 
 /// A file change classification, modelled after `git status`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -14,19 +14,6 @@ pub enum ChangeKind {
     TypeChange,
 }
 
-impl ChangeKind {
-    /// Left-padded label matching `git status` output.
-    pub fn label(&self) -> &'static str {
-        match self {
-            ChangeKind::New => "new file:   ",
-            ChangeKind::Modified => "modified:   ",
-            ChangeKind::Deleted => "deleted:    ",
-            ChangeKind::Renamed => "renamed:    ",
-            ChangeKind::TypeChange => "typechange: ",
-        }
-    }
-}
-
 /// A single status entry for a file.
 #[derive(Debug, Clone)]
 pub struct StatusEntry {
@@ -35,31 +22,53 @@ pub struct StatusEntry {
     pub path: String,
 }
 
-/// Query status with `git status`.
-#[derive(Debug, Clone, Default)]
-pub struct StatusCommand {
+fn parse_change_kind(x: char) -> ChangeKind {
+    match x {
+        'A' => ChangeKind::New,
+        'M' => ChangeKind::Modified,
+        'D' => ChangeKind::Deleted,
+        'R' => ChangeKind::Renamed,
+        'T' => ChangeKind::TypeChange,
+        _ => ChangeKind::Modified, // default fallback
+    }
+}
+
+pub struct Status {
+    pub staged: Vec<StatusEntry>,
+    pub unstaged: Vec<StatusEntry>,
+    pub untracked: Vec<StatusEntry>,
+}
+
+impl Status {
+    pub fn is_empty(&self) -> bool {
+        self.staged.is_empty() && self.unstaged.is_empty() && self.untracked.is_empty()
+    }
+}
+
+pub struct StatusCmd {
     pub untracked_files: bool,
     pub ignore_submodules_dirty: bool,
 }
 
-impl GitCommand for StatusCommand {
-    type Output = (Vec<StatusEntry>, Vec<StatusEntry>, Vec<StatusEntry>);
-
-    fn to_args(&self) -> Vec<OsString> {
-        let mut args = vec![OsString::from("status")];
-        args.push(OsString::from("--porcelain=v2"));
-        args.push(OsString::from("-z"));
-
+impl ToArgs for StatusCmd {
+    fn to_args(&self, args: &mut Vec<OsString>) {
+        args.push("status".into());
+        args.push("--porcelain=v2".into());
+        args.push("-z".into());
         if self.untracked_files {
-            args.push(OsString::from("-uall"));
+            args.push("-uall".into());
         }
-        if self.ignore_submodules_dirty {
-            args.push(OsString::from("--ignore-submodules=dirty"));
-        }
-        args
-    }
 
-    fn parse_output(&self, output: &Output) -> Result<Self::Output> {
+        if self.ignore_submodules_dirty {
+            args.push("--ignore-submodules=dirty".into());
+        }
+    }
+}
+
+impl ParseOutput for StatusCmd {
+    type Output = Status;
+
+    fn parse_output(&self, output: &Output) -> crate::Result<Status> {
         let bytes = &output.stdout;
         let mut staged = Vec::new();
         let mut unstaged = Vec::new();
@@ -80,49 +89,15 @@ impl GitCommand for StatusCommand {
                     let x = xy.chars().next().unwrap_or('.');
                     let y = xy.chars().nth(1).unwrap_or('.');
 
-                    match x {
-                        'A' => staged.push(StatusEntry {
-                            kind: ChangeKind::New,
-                            path: path.clone(),
-                        }),
-                        'M' => staged.push(StatusEntry {
-                            kind: ChangeKind::Modified,
-                            path: path.clone(),
-                        }),
-                        'D' => staged.push(StatusEntry {
-                            kind: ChangeKind::Deleted,
-                            path: path.clone(),
-                        }),
-                        'R' => staged.push(StatusEntry {
-                            kind: ChangeKind::Renamed,
-                            path: path.clone(),
-                        }),
-                        'T' => staged.push(StatusEntry {
-                            kind: ChangeKind::TypeChange,
-                            path: path.clone(),
-                        }),
-                        _ => {}
-                    }
+                    let x_kind = parse_change_kind(x);
+                    let y_kind = parse_change_kind(y);
 
-                    match y {
-                        'M' => unstaged.push(StatusEntry {
-                            kind: ChangeKind::Modified,
-                            path,
-                        }),
-                        'D' => unstaged.push(StatusEntry {
-                            kind: ChangeKind::Deleted,
-                            path,
-                        }),
-                        'R' => unstaged.push(StatusEntry {
-                            kind: ChangeKind::Renamed,
-                            path,
-                        }),
-                        'T' => unstaged.push(StatusEntry {
-                            kind: ChangeKind::TypeChange,
-                            path,
-                        }),
-                        _ => {}
-                    }
+                    staged.push(StatusEntry {
+                        kind: x_kind,
+                        path: path.clone(),
+                    });
+
+                    unstaged.push(StatusEntry { kind: y_kind, path });
                 }
             } else if let Some(rest) = s.strip_prefix("2 ") {
                 // Renamed/copied entry: 2 <XY> <sub> <mH> <mI> <mW> <hH> <hI> <Xscore> <path>
@@ -134,37 +109,18 @@ impl GitCommand for StatusCommand {
                     let x = xy.chars().next().unwrap_or('.');
                     let y = xy.chars().nth(1).unwrap_or('.');
 
-                    match x {
-                        'R' => staged.push(StatusEntry {
-                            kind: ChangeKind::Renamed,
-                            path: path.clone(),
-                        }),
-                        'A' => staged.push(StatusEntry {
-                            kind: ChangeKind::New,
-                            path: path.clone(),
-                        }),
-                        'M' => staged.push(StatusEntry {
-                            kind: ChangeKind::Modified,
-                            path: path.clone(),
-                        }),
-                        _ => {}
-                    }
+                    let x_kind = parse_change_kind(x);
+                    let y_kind = parse_change_kind(y);
 
-                    match y {
-                        'R' => unstaged.push(StatusEntry {
-                            kind: ChangeKind::Renamed,
-                            path,
-                        }),
-                        'M' => unstaged.push(StatusEntry {
-                            kind: ChangeKind::Modified,
-                            path,
-                        }),
-                        'D' => unstaged.push(StatusEntry {
-                            kind: ChangeKind::Deleted,
-                            path,
-                        }),
-                        _ => {}
-                    }
+                    staged.push(StatusEntry {
+                        kind: x_kind,
+                        path: path.clone(),
+                    });
+
+                    unstaged.push(StatusEntry {
+                        kind: y_kind,
+                        path: path.clone(),
+                    });
                 }
             } else if let Some(path) = s.strip_prefix("? ") {
                 untracked.push(StatusEntry {
@@ -184,6 +140,10 @@ impl GitCommand for StatusCommand {
             }
         }
 
-        Ok((staged, unstaged, untracked))
+        Ok(Status {
+            staged,
+            unstaged,
+            untracked,
+        })
     }
 }

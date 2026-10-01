@@ -14,7 +14,9 @@ pub mod commands;
 pub mod config;
 pub mod error;
 pub mod git;
+pub mod repo;
 pub mod repo_tree;
 
 pub use error::{Result, SgitError};
+pub use repo::Repo;
 pub use repo_tree::RepoTree;

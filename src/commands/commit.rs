@@ -2,7 +2,7 @@
 
 use crate::RepoTree;
 use crate::error::{Result, SgitError};
-use crate::git::CommitCommand;
+use crate::git::commit::CommitCmd;
 
 /// Commit staged changes across all repos in depth-first order.
 ///
@@ -38,18 +38,20 @@ pub fn run(message: Option<&str>, no_verify: bool) -> Result<()> {
             }
         }
 
-        let (staged, _, _) = r.list_status()?;
-        if staged.is_empty() {
+        let s = r.status()?;
+        if s.is_empty() {
             continue;
         }
 
-        let cmd = CommitCommand {
-            message: msg.to_string(),
+        let cmd = CommitCmd {
+            message: Some(msg.into()),
             no_verify,
+            ..Default::default()
         };
 
         match r.git(&cmd) {
-            Ok(()) => {
+            // TODO: print commit hash
+            Ok(_) => {
                 println!("[{label}] Committed: {msg}");
                 committed_any = true;
             }

@@ -2,7 +2,7 @@
 
 use crate::RepoTree;
 use crate::error::{Result, SgitError};
-use crate::git::AddCommand;
+use crate::git::add::AddCmd;
 
 /// Stage file changes across the repo tree.
 ///
@@ -19,18 +19,15 @@ pub fn run(filenames: &[String], all: bool, update: bool) -> Result<()> {
     let tree = RepoTree::discover(None)?;
 
     if all || update {
-        let cmd = if all {
-            AddCommand::All
-        } else {
-            AddCommand::Update
-        };
+        let cmd = if all { AddCmd::All } else { AddCmd::Update };
         for r in tree.all() {
             let label = r.label();
+
             match r.git(&cmd) {
                 Ok(_) => {
-                    let (staged, _, _) = r.list_status()?;
-                    if !staged.is_empty() {
-                        println!("[{label}] Staged {} file(s)", staged.len());
+                    let status = r.status()?;
+                    if !status.staged.is_empty() {
+                        println!("[{label}] Staged {} file(s)", status.staged.len());
                     }
                 }
                 Err(e) => eprintln!("[{label}] Error: {e}"),
@@ -50,13 +47,10 @@ pub fn run(filenames: &[String], all: bool, update: bool) -> Result<()> {
             None => {
                 eprintln!("Error: {filename} is not in any known repo/submodule");
             }
-            Some((repo, rel)) => {
-                let cmd = AddCommand::Paths(vec![rel.clone()]);
-                match repo.git(&cmd) {
-                    Ok(_) => println!("[{}] Added {}", repo.label(), rel.display()),
-                    Err(e) => eprintln!("Error adding {filename}: {e}"),
-                }
-            }
+            Some((repo, rel)) => match repo.git(&AddCmd::Paths(vec![rel.clone()])) {
+                Ok(_) => println!("[{}] Added {}", repo.label(), rel.display()),
+                Err(e) => eprintln!("Error adding {filename}: {e}"),
+            },
         }
     }
     Ok(())

@@ -20,54 +20,29 @@ use std::path::Path;
 
 use serde::Deserialize;
 
-use crate::git::Git;
+use crate::Repo;
 
 pub const REPO_CONFIG_FILE: &str = ".sgit.toml";
 pub const GLOBAL_CONFIG_DIR: &str = "sgit";
 pub const GLOBAL_CONFIG_FILE: &str = "sgit.toml";
 pub const GLOBAL_CONFIG_FILE_PATH: &str = "sgit/sgit.toml";
 
-/// Raw deserialization target for global configuration.
+/// Raw deserialization target - one source file.
 #[derive(Debug, Default, Deserialize)]
-struct RawGlobalConfig {
-    #[serde(default)]
-    git: String,
-
+struct RawConfig {
     #[serde(default)]
     exclude: Vec<String>,
     #[serde(default)]
     alias: HashMap<String, String>,
 }
 
-impl RawGlobalConfig {
+impl RawConfig {
+    /// Parse one TOML config file into raw config values.
+    ///
+    /// - `path`: file path to read and parse.
     fn from_file(path: &Path) -> Option<Self> {
         let text = std::fs::read_to_string(path).ok()?;
-        match toml::from_str::<Self>(&text) {
-            Ok(c) => Some(c),
-            Err(e) => {
-                eprintln!("Warning: failed to parse {}: {e}", path.display());
-                None
-            }
-        }
-    }
-}
-
-/// Raw deserialization target for repo-local configuration (.sgit.toml).
-///
-/// The `git` executable cannot be configured per repository. If present,
-/// a warning is printed and the value is ignored.
-#[derive(Debug, Default, Deserialize)]
-struct RawRepoConfig {
-    #[serde(default)]
-    exclude: Vec<String>,
-    #[serde(default)]
-    alias: HashMap<String, String>,
-}
-
-impl RawRepoConfig {
-    fn from_file(path: &Path) -> Option<Self> {
-        let text = std::fs::read_to_string(path).ok()?;
-        match toml::from_str::<Self>(&text) {
+        match toml::from_str(&text) {
             Ok(c) => Some(c),
             Err(e) => {
                 eprintln!("Warning: failed to parse {}: {e}", path.display());
@@ -81,11 +56,8 @@ impl RawRepoConfig {
 ///
 /// Built by combining the global config (XDG) with the repo-local `.sgit.toml`.
 /// Exclusions from both sources are unioned.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct SgitConfig {
-    /// Path to the Git executable (configured globally only).
-    pub git: String,
-
     /// Submodule paths (relative to this repo's workdir) to exclude from all
     /// sgit operations. Paths use forward slashes on all platforms.
     pub exclude: Vec<String>,
@@ -101,7 +73,6 @@ pub struct SgitConfig {
 impl Default for SgitConfig {
     fn default() -> Self {
         Self {
-            git: "git".to_string(),
             exclude: Vec::new(),
             aliases: HashMap::new(),
         }
@@ -109,48 +80,16 @@ impl Default for SgitConfig {
 }
 
 impl SgitConfig {
-
-    /// Load and merge the global configuration file.
-    pub fn merge_global(&mut self, path: &Path) {
-        if let Some(raw) = RawGlobalConfig::from_file(path) {
-            if !raw.git.is_empty() {
-                self.git = raw.git;
-            }
-            for entry in raw.exclude {
-                if !self.exclude.contains(&entry) {
-                    self.exclude.push(entry);
-                }
-            }
-            self.aliases.extend(raw.alias);
-        }
-    }
-
-    /// Load and merge a repo-local `.sgit.toml` file.
-    ///
-    /// The git executable cannot be set per repo and is not affected by this call.
-    pub fn merge_local(&mut self, path: &Path) {
-        if let Some(raw) = RawRepoConfig::from_file(path) {
-            for entry in raw.exclude {
-                if !self.exclude.contains(&entry) {
-                    self.exclude.push(entry);
-                }
-            }
-            self.aliases.extend(raw.alias);
-        }
-    }
-
-    /// Backwards-compatible alias for merging repo-local configuration.
+    /// Load and merge the global config + `repo_workdir/.sgit.toml`.
     pub fn merge(&mut self, path: &Path) {
-        self.merge_local(path);
-    }
-
-    /// Load the global configuration if present.
-    pub fn load_global() -> Self {
-        let mut config = SgitConfig::default();
-        if let Some(global_path) = global_config_path() {
-            config.merge_global(&global_path);
+        if let Some(raw) = RawConfig::from_file(path) {
+            for entry in raw.exclude {
+                if !self.exclude.contains(&entry) {
+                    self.exclude.push(entry);
+                }
+            }
+            self.aliases.extend(raw.alias);
         }
-        config
     }
 
     pub fn load(repo_dir: &Path) -> Self {
@@ -158,30 +97,17 @@ impl SgitConfig {
     }
 
     /// Like [`load`] but with an explicit global config path, used in tests.
-    pub fn load_with_global(repo_dir: &Path, global_path: Option<&Path>) -> Self {
+    fn load_with_global(repo_dir: &Path, global_path: Option<&Path>) -> Self {
         let mut config = SgitConfig::default();
 
         // first load the global config
         if let Some(global_path) = global_path {
-            config.merge_global(global_path);
+            config.merge(global_path);
         }
 
-        // then override with repo-local config (git executable cannot be set per repo)
+        // then override with
         let local_path = repo_dir.join(REPO_CONFIG_FILE);
-        config.merge_local(&local_path);
-        config
-    }
-
-    /// Load config for a submodule, inheriting the global git executable
-    /// and applying the submodule's repo-local exclusions.
-    pub fn load_submodule(&self, sub_workdir: &Path) -> Self {
-        let mut config = SgitConfig {
-            git: self.git.clone(),
-            exclude: Vec::new(),
-            aliases: HashMap::new(),
-        };
-        let local_path = sub_workdir.join(REPO_CONFIG_FILE);
-        config.merge_local(&local_path);
+        config.merge(&local_path);
         config
     }
 
@@ -202,51 +128,26 @@ impl SgitConfig {
 
 /// Load aliases from the root repo that contains `cwd`.
 ///
-/// Walks up from `cwd` using Git CLI to find the outermost git repository,
+/// Walks up from `cwd` using Git to find the outermost git repository,
 /// then loads its config (merged with the global config). Returns an empty
 /// config if no git repo is found or any I/O error occurs.
 pub fn load_root_config() -> SgitConfig {
+    // Find outermost git root by repeatedly discovering from the parent.
     let cwd = match std::env::current_dir() {
         Ok(p) => p,
         Err(_) => return SgitConfig::default(),
     };
-    load_root_config_from(&cwd)
-}
-
-/// Like [`load_root_config`] but starting from an explicit directory.
-pub fn load_root_config_from(start: &Path) -> SgitConfig {
-    load_root_config_from_with_global(start, global_config_path().as_deref())
-}
-
-/// Like [`load_root_config_from`] but with an explicit global config path, used in tests.
-pub fn load_root_config_from_with_global(start: &Path, global_path: Option<&Path>) -> SgitConfig {
-    use crate::git::{Git, GitCommand, RevParseCommand};
-
-    let mut global_cfg = SgitConfig::default();
-    if let Some(gp) = global_path {
-        global_cfg.merge_global(gp);
-    }
-    let git = Git::new(global_cfg.git.clone().into());
-
-    let mut search = start.to_path_buf();
-    let mut outermost_root: Option<std::path::PathBuf> = None;
-
-    while let Ok(toplevel) = RevParseCommand::toplevel().run(&git, &search) {
-        outermost_root = Some(toplevel.clone());
-        match toplevel.parent() {
-            Some(p) if p != toplevel => search = p.to_path_buf(),
-            _ => break,
+    let mut root = cwd.clone();
+    let mut search = cwd.as_path();
+    while let Ok(repo) = Repo::discover(search) {
+        root = repo.workdir.clone();
+        match search.parent() {
+            Some(p) => search = p,
+            None => break,
         }
     }
 
-    match outermost_root {
-        Some(root) => {
-            let mut cfg = global_cfg;
-            cfg.merge_local(&root.join(REPO_CONFIG_FILE));
-            cfg
-        }
-        None => global_cfg,
-    }
+    SgitConfig::load(&root)
 }
 
 /// Resolve `$XDG_CONFIG_HOME/sgit/sgit.toml`, falling back to
@@ -462,35 +363,5 @@ pushmr = "push -o merge_request.create -o merge_request.remove_source_branch -o 
                 "merge_request.merge_when_pipeline_succeeds".to_string()
             ])
         );
-    }
-
-    #[test]
-    /// Git executable set in global config is respected.
-    fn git_executable_from_global_config_is_respected() {
-        let tmp = tempdir().unwrap();
-        let global_file = tmp.path().join(GLOBAL_CONFIG_FILE);
-        fs::write(&global_file, r#"git = "/custom/bin/git""#).unwrap();
-
-        let repo_dir = tempdir().unwrap();
-        let cfg = SgitConfig::load_with_global(repo_dir.path(), Some(&global_file));
-        assert_eq!(cfg.git, "/custom/bin/git");
-    }
-
-    #[test]
-    /// Git executable set in local config (.sgit.toml) is ignored.
-    fn git_executable_from_local_config_is_ignored() {
-        let tmp = tempdir().unwrap();
-        let global_file = tmp.path().join(GLOBAL_CONFIG_FILE);
-        fs::write(&global_file, r#"git = "/global/bin/git""#).unwrap();
-
-        let repo_dir = tempdir().unwrap();
-        write_config(repo_dir.path(), r#"git = "/local/bin/git""#);
-
-        let cfg = SgitConfig::load_with_global(repo_dir.path(), Some(&global_file));
-        assert_eq!(cfg.git, "/global/bin/git");
-
-        // Even with no global config, local git setting does not override default "git"
-        let cfg_default = SgitConfig::load_with_global(repo_dir.path(), None);
-        assert_eq!(cfg_default.git, "git");
     }
 }
