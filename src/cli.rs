@@ -170,7 +170,7 @@ pub fn run(cli: Cli) -> Result<()> {
         Command::Commit { message, no_verify } => {
             commands::commit::run(message.as_deref(), no_verify)
         }
-        // Command::Push { push_option } => commands::push::run(&push_option),
+        Command::Push { push_option } => commands::push::run(&push_option),
         // Command::Restore { filenames, staged } => commands::restore::run(&filenames, staged),
         // Command::Reset { ref_, hard } => commands::reset::run(ref_.as_deref(), hard),
         // Command::Merge { branch } => commands::merge::run(&branch),

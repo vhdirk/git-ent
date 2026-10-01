@@ -146,6 +146,28 @@ impl Repo {
         }
     }
 
+    /// Return all remote names configured for this repository.
+    pub fn remotes(&self) -> Result<Vec<String>> {
+        use crate::git::remote::RemoteCmd;
+        self.git(&RemoteCmd)
+    }
+
+    /// Return how many commits `branch` is ahead of `remote/branch`.
+    ///
+    /// If the upstream tracking branch does not exist yet on the remote,
+    /// counts total commits on the local branch instead.
+    pub fn commits_ahead(&self, branch: &str, remote: &str) -> Result<usize> {
+        use crate::git::rev_list::RevListCmd;
+        let range = format!("{remote}/{branch}..{branch}");
+        match self.git(&RevListCmd::count(&range)) {
+            Ok(count) => Ok(count),
+            Err(_) => {
+                // Upstream does not exist yet, count commits on local branch
+                self.git(&RevListCmd::count(branch)).or(Ok(0))
+            }
+        }
+    }
+
     pub fn submodule_paths(&self) -> Result<Vec<PathBuf>> {
         let cmd = ConfigCmd::Get(crate::git::config::Get {
             regexp: true,
