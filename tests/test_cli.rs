@@ -54,3 +54,17 @@ fn run_propagates_command_usage_error() {
     });
     assert!(res.is_err());
 }
+
+#[test]
+/// Dispatches `push` through the global CLI runner.
+fn run_dispatches_push() {
+    let p = common::plain_repo();
+    let res = common::in_cwd(&p.path, || {
+        run(Cli {
+            command: Command::Push {
+                push_option: vec![],
+            },
+        })
+    });
+    assert!(res.is_ok());
+}

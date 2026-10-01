@@ -120,3 +120,83 @@ fn push_captures_merge_request_notices() {
     );
     assert!(!output.ref_updates.is_empty());
 }
+
+#[test]
+/// Test case for detached HEAD does nothing.
+fn push_detached_head_does_nothing() {
+    let tmp = tempfile::tempdir().unwrap();
+    let repo = repo_with_remote(tmp.path());
+    common::git(&repo, &["checkout", "--detach", "HEAD"]);
+    common::in_cwd(&repo, || commands::push::run(&[])).unwrap();
+}
+
+#[test]
+/// Test case for pushes across submodules.
+fn pushes_across_submodules() {
+    let tmp = tempfile::tempdir().unwrap();
+    let r = common::repo_with_submodules();
+
+    // Allow pushing to checked-out branch in upstream submodule fixtures
+    common::git(
+        &r.sub1,
+        &["config", "receive.denyCurrentBranch", "updateInstead"],
+    );
+    common::git(
+        &r.sub2,
+        &["config", "receive.denyCurrentBranch", "updateInstead"],
+    );
+
+    let root_bare = tmp.path().join("root.git");
+    std::process::Command::new("git")
+        .args(["init", "--bare", "-q", &root_bare.display().to_string()])
+        .status()
+        .unwrap();
+
+    common::git(
+        &r.main,
+        &["remote", "add", "origin", &root_bare.display().to_string()],
+    );
+
+    // Push initial commit on root with -u
+    common::git(&r.main, &["push", "-q", "--set-upstream", "origin", "main"]);
+
+    // Make new commits across root and sub1
+    std::fs::write(r.main.join("new_root.txt"), "root\n").unwrap();
+    common::git(&r.main, &["add", "new_root.txt"]);
+    common::git(&r.main, &["commit", "-q", "-m", "new root commit"]);
+
+    std::fs::write(r.main.join("sub1/new_sub1.txt"), "sub1\n").unwrap();
+    common::git(&r.main.join("sub1"), &["add", "new_sub1.txt"]);
+    common::git(
+        &r.main.join("sub1"),
+        &["commit", "-q", "-m", "new sub1 commit"],
+    );
+
+    // Run sgit push
+    common::in_cwd(&r.main, || commands::push::run(&[])).unwrap();
+
+    // Verify root remote received the new commit
+    let log_root = common::git_out(&root_bare, &["log", "--oneline"]);
+    assert!(String::from_utf8_lossy(&log_root.stdout).contains("new root commit"));
+
+    // Verify submodule remote (r.sub1) received the new commit
+    let log_sub1 = common::git_out(&r.sub1, &["log", "--oneline"]);
+    assert!(String::from_utf8_lossy(&log_sub1.stdout).contains("new sub1 commit"));
+}
+
+#[test]
+/// Test case for PushCmd dry-run execution.
+fn push_cmd_dry_run() {
+    let tmp = tempfile::tempdir().unwrap();
+    let repo = repo_with_remote(tmp.path());
+    let r = sgit::Repo::discover(&repo).unwrap();
+
+    let cmd = sgit::git::push::PushCmd {
+        remote: Some("origin".to_string()),
+        branch: Some("main".to_string()),
+        dry_run: true,
+        ..Default::default()
+    };
+    let output = r.git(&cmd).unwrap();
+    assert!(!output.ref_updates.is_empty());
+}

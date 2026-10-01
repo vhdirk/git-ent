@@ -174,7 +174,7 @@ pub fn run(cli: Cli) -> Result<()> {
         // Command::Restore { filenames, staged } => commands::restore::run(&filenames, staged),
         // Command::Reset { ref_, hard } => commands::reset::run(ref_.as_deref(), hard),
         // Command::Merge { branch } => commands::merge::run(&branch),
-        // Command::Rebase { branch } => commands::rebase::run(&branch),
+        Command::Rebase { branch } => commands::rebase::run(&branch),
         // Command::Squash { branch, message } => commands::squash::run(&branch, message.as_deref()),
         _ => {
             unimplemented!("This command is not yet implemented")

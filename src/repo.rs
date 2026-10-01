@@ -152,17 +152,21 @@ impl Repo {
         self.git(&RemoteCmd)
     }
 
-    /// Return how many commits `branch` is ahead of `remote/branch`.
+    /// Return how many commits `branch` is ahead of its upstream or `remote/branch`.
     ///
     /// If the upstream tracking branch does not exist yet on the remote,
     /// counts total commits on the local branch instead.
     pub fn commits_ahead(&self, branch: &str, remote: &str) -> Result<usize> {
         use crate::git::rev_list::RevListCmd;
+        let upstream_range = format!("{branch}@{{u}}..{branch}");
+        if let Ok(count) = self.git(&RevListCmd::count(&upstream_range)) {
+            return Ok(count);
+        }
         let range = format!("{remote}/{branch}..{branch}");
         match self.git(&RevListCmd::count(&range)) {
             Ok(count) => Ok(count),
             Err(_) => {
-                // Upstream does not exist yet, count commits on local branch
+                // Neither upstream tracking nor remote branch exists yet, count commits on local branch
                 self.git(&RevListCmd::count(branch)).or(Ok(0))
             }
         }

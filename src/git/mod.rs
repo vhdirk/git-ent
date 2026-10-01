@@ -13,6 +13,7 @@ pub mod command;
 pub mod commit;
 pub mod config;
 pub mod push;
+pub mod rebase;
 pub mod remote;
 pub mod rev_list;
 pub mod rev_parse;

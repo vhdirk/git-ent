@@ -2,7 +2,8 @@
 
 use crate::RepoTree;
 use crate::error::{Result, SgitError};
-use crate::git::{RebaseAbortCommand, RebaseCommand, Repo};
+use crate::git::rebase::RebaseCmd;
+use crate::repo::Repo;
 
 /// Rebase every repo's current branch onto `branch` (depth-first).
 ///
@@ -28,11 +29,11 @@ pub fn run(branch: &str) -> Result<()> {
 /// - `r`: repo handle (used for repo + conflict context).
 /// - `branch`: local upstream branch name.
 fn rebase_one(r: &Repo, branch: &str) -> Result<()> {
-    let cmd = RebaseCommand::new(branch);
+    let cmd = RebaseCmd::new(branch);
     match r.git(&cmd) {
-        Ok(()) => Ok(()),
+        Ok(_) => Ok(()),
         Err(_) => {
-            let _ = r.git(&RebaseAbortCommand);
+            let _ = r.git(&RebaseCmd::Abort);
             Err(SgitError::Conflict {
                 repo: r.display_label(),
                 workdir: r.workdir.clone(),

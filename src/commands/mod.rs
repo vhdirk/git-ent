@@ -11,7 +11,7 @@ pub mod clone;
 pub mod commit;
 // pub mod merge;
 pub mod push;
-// pub mod rebase;
+pub mod rebase;
 // pub mod reset;
 // pub mod restore;
 // pub mod squash;
