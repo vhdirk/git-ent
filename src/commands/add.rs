@@ -25,9 +25,9 @@ pub fn run(filenames: &[String], all: bool, update: bool) -> Result<()> {
         for r in tree.all() {
             let label = r.label();
             let result = if all {
-                stage_all(&r.repo)
+                r.stage_all()
             } else {
-                stage_update(&r.repo)
+                r.stage_update()
             };
             match result {
                 Ok(()) => {
@@ -78,23 +78,3 @@ fn stage_single(repo: &Repository, rel: &Path) -> Result<()> {
     Ok(())
 }
 
-/// `git add -A`: stage untracked + modified, remove deleted tracked files.
-///
-/// - `repo`: repository whose index is updated.
-fn stage_all(repo: &Repository) -> Result<()> {
-    let mut index = repo.index()?;
-    index.add_all(["*"].iter(), IndexAddOption::DEFAULT, None)?;
-    index.update_all(["*"].iter(), None)?;
-    index.write()?;
-    Ok(())
-}
-
-/// `git add -u`: tracked-file changes only (skip untracked).
-///
-/// - `repo`: repository whose index is updated.
-fn stage_update(repo: &Repository) -> Result<()> {
-    let mut index = repo.index()?;
-    index.update_all(["*"].iter(), None)?;
-    index.write()?;
-    Ok(())
-}

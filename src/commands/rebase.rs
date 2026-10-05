@@ -5,7 +5,7 @@ use git2::{BranchType, Rebase, RebaseOptions, Repository};
 use crate::RepoTree;
 use crate::error::{Result, SgitError};
 use crate::git::signature;
-use crate::repo_tree::RepoHandle;
+use crate::repo::Repo;
 
 /// Rebase every repo's current branch onto `branch` (depth-first).
 ///
@@ -39,7 +39,7 @@ fn repo_has_branch(repo: &Repository, branch: &str) -> Result<()> {
 ///
 /// - `r`: repo handle (used for repo + conflict context).
 /// - `branch`: local upstream branch name.
-fn rebase_one(r: &RepoHandle, branch: &str) -> Result<()> {
+fn rebase_one(r: &Repo, branch: &str) -> Result<()> {
     let repo = &r.repo;
 
     // Upstream (what we're rebasing onto).

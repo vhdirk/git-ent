@@ -35,20 +35,12 @@ pub fn run(branch: Option<&str>, create: Option<&str>, paths: &[String]) -> Resu
     let tree = RepoTree::discover(None)?;
     for r in tree.all() {
         let label = r.label();
-        let res = if create.is_some() {
-            create_and_checkout(&r.repo, name)
+        let created = r.checkout(name, create.is_some())?;
+
+        if created {
+            println!("[{label}] Created and checked out '{name}'");
         } else {
-            checkout_existing(&r.repo, name)
-        };
-        match res {
-            Ok(CheckoutOutcome::CheckedOut) => println!("[{label}] Checked out '{name}'"),
-            Ok(CheckoutOutcome::CreatedAndCheckedOut) => {
-                println!("[{label}] Created and checked out '{name}'")
-            }
-            Ok(CheckoutOutcome::Missing) => {
-                eprintln!("[{label}] Warning: branch '{name}' does not exist")
-            }
-            Err(e) => eprintln!("[{label}] Error checking out '{name}': {e}"),
+            println!("[{label}] Checked out '{name}'");
         }
     }
 
@@ -127,50 +119,3 @@ fn checkout_path_from_branch(
     Ok(PathCheckoutOutcome::CheckedOut)
 }
 
-enum CheckoutOutcome {
-    CheckedOut,
-    CreatedAndCheckedOut,
-    Missing,
-}
-
-/// Switch to an existing local branch in one repository.
-///
-/// - `repo`: repository whose HEAD is updated.
-/// - `name`: existing local branch name.
-fn checkout_existing(repo: &Repository, name: &str) -> Result<CheckoutOutcome> {
-    let branch = match repo.find_branch(name, BranchType::Local) {
-        Ok(b) => b,
-        Err(e) if e.code() == ErrorCode::NotFound => return Ok(CheckoutOutcome::Missing),
-        Err(e) => return Err(e.into()),
-    };
-    let reference = branch.get();
-    let refname = reference.name().map_err(SgitError::from)?;
-
-    repo.set_head(refname)?;
-    let mut co = CheckoutBuilder::new();
-    repo.checkout_head(Some(&mut co))?;
-    Ok(CheckoutOutcome::CheckedOut)
-}
-
-/// Create `name` from current HEAD when missing, then check it out.
-///
-/// - `repo`: repository to update.
-/// - `name`: local branch name.
-fn create_and_checkout(repo: &Repository, name: &str) -> Result<CheckoutOutcome> {
-    if let Ok(branch) = repo.find_branch(name, BranchType::Local) {
-        // Branch already exists: keep command idempotent and just switch to it.
-        let refname = branch.get().name().map_err(SgitError::from)?;
-        repo.set_head(refname)?;
-        let mut co = CheckoutBuilder::new();
-        repo.checkout_head(Some(&mut co))?;
-        return Ok(CheckoutOutcome::CheckedOut);
-    }
-
-    let head = repo.head()?.peel_to_commit()?;
-    let _ = repo.branch(name, &head, false)?;
-    let refname = format!("refs/heads/{name}");
-    repo.set_head(&refname)?;
-    let mut co = CheckoutBuilder::new();
-    repo.checkout_head(Some(&mut co))?;
-    Ok(CheckoutOutcome::CreatedAndCheckedOut)
-}

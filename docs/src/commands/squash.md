@@ -53,7 +53,7 @@ submodule pointers correctly record the newly-squashed children.
 
 ## Skipping rules
 
-- HEAD is detached → skip.
-- `<branch>` doesn't exist in the repo → skip (matches `sgit merge`).
-- Already on `<branch>` → skip (nothing sensible to do).
-- No commits to squash and no submodule pointer change → skip.
+- HEAD is detached --> skip.
+- `<branch>` doesn't exist in the repo --> skip (matches `sgit merge`).
+- Already on `<branch>` --> skip (nothing sensible to do).
+- No commits to squash and no submodule pointer change --> skip.

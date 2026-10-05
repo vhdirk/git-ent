@@ -7,7 +7,7 @@ use git2::{ObjectType, Repository, build::CheckoutBuilder};
 use crate::RepoTree;
 use crate::error::Result;
 use crate::git::head_commit;
-use crate::repo_tree::RepoHandle;
+use crate::repo::Repo;
 
 /// Restore working-tree changes or unstage index changes recursively.
 ///
@@ -53,7 +53,7 @@ pub fn run(filenames: &[String], staged: bool) -> Result<()> {
 ///
 /// - `r`: repository handle to process.
 /// - `staged`: controls whether to unstage or restore working tree files.
-fn restore_all_in(r: &RepoHandle, staged: bool) {
+fn restore_all_in(r: &Repo, staged: bool) {
     let label = r.label();
     let (st, un, _) = match r.list_status() {
         Ok(v) => v,

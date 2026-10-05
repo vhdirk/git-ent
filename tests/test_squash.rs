@@ -19,7 +19,7 @@ fn squash_missing_branch_skips() {
 fn squash_collapses_multiple_commits_into_one() {
     let p = common::plain_repo();
     // Baseline commit is on main. Branch off a new feature and make two
-    // commits. Squash onto main → a single commit replaces the two.
+    // commits. Squash onto main --> a single commit replaces the two.
     common::git(&p.path, &["checkout", "-q", "-b", "feature"]);
     std::fs::write(p.path.join("a.txt"), "a\n").unwrap();
     common::git(&p.path, &["add", "a.txt"]);

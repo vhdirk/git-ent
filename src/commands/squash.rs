@@ -10,8 +10,8 @@ use crate::RepoTree;
 use crate::commands::reset::reset_to;
 use crate::error::{Result, SgitError};
 use crate::git::signature;
-use crate::repo_tree::{RepoHandle, changed_submodule_paths};
-
+use crate::repo_tree::{changed_submodule_paths};
+use crate::repo::Repo;
 /// Squash commits since merge-base against `branch` in every repo.
 ///
 /// - `branch`: target branch used to compute merge-base.
@@ -52,10 +52,10 @@ enum SquashOutcome {
 /// - `r`: repository handle to squash.
 /// - `branch`: target branch used to compute merge-base.
 /// - `message`: optional explicit squash commit message.
-fn squash_one(r: &RepoHandle, branch: &str, message: Option<&str>) -> Result<SquashOutcome> {
+fn squash_one(r: &Repo, branch: &str, message: Option<&str>) -> Result<SquashOutcome> {
     let repo = &r.repo;
 
-    // Detached → skip.
+    // Detached --> skip.
     if repo.head_detached().unwrap_or(false) {
         return Ok(SquashOutcome::Skipped("detached HEAD".into()));
     }
@@ -102,7 +102,7 @@ fn squash_one(r: &RepoHandle, branch: &str, message: Option<&str>) -> Result<Squ
 
     if commits.is_empty() {
         if has_sub_changes_pre {
-            // No own commits to squash, but submodule pointer moved → create
+            // No own commits to squash, but submodule pointer moved --> create
             // a pointer-only commit on the current branch.
             record_pointer_commit(repo)?;
             return Ok(SquashOutcome::PointerOnly);
