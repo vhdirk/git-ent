@@ -8,7 +8,7 @@ sgit commit -m "message"
 # Skip pre-commit and commit-msg hooks
 sgit commit -m "message" --no-verify
 
-# No -m → opens $EDITOR with a git-style template
+# No -m --> opens $EDITOR with a git-style template
 sgit commit
 ```
 

@@ -1,11 +1,8 @@
 //! `sgit commit` - depth-first commit with automatic submodule-pointer staging.
 
-use git2::Repository;
 
 use crate::RepoTree;
-use crate::commands::status::build_commit_template;
 use crate::error::{Result, SgitError};
-use crate::git::{head_commit, signature};
 
 /// Commit staged changes across all repos in depth-first order.
 ///
@@ -22,7 +19,7 @@ pub fn run(message: Option<&str>, no_verify: bool) -> Result<()> {
     let msg: &str = match message {
         Some(m) => m,
         None => {
-            let template = build_commit_template(&tree)?;
+            let template = tree.build_commit_template()?;
             match commit_message_from_editor(&template) {
                 Some(m) => {
                     owned = m;
@@ -50,7 +47,7 @@ pub fn run(message: Option<&str>, no_verify: bool) -> Result<()> {
             continue;
         }
 
-        match create_commit(&r.repo, msg) {
+        match r.create_commit(msg) {
             Ok(()) => {
                 println!("[{label}] Committed: {msg}");
                 committed_any = true;
@@ -65,23 +62,6 @@ pub fn run(message: Option<&str>, no_verify: bool) -> Result<()> {
     Ok(())
 }
 
-/// Create a commit on the current branch from the repo's index.
-fn create_commit(repo: &Repository, message: &str) -> Result<()> {
-    let sig = signature(repo)?;
-    let mut index = repo.index()?;
-    let tree_oid = index.write_tree()?;
-    let tree = repo.find_tree(tree_oid)?;
-
-    // Collect parents: HEAD if any.
-    let parents = match head_commit(repo) {
-        Ok(c) => vec![c],
-        Err(_) => Vec::new(),
-    };
-    let parent_refs: Vec<&git2::Commit> = parents.iter().collect();
-
-    repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parent_refs)?;
-    Ok(())
-}
 
 /// Open `$EDITOR`/`$VISUAL` with `template` pre-filled and return the
 /// non-comment, trimmed body - or `None` if the user saved an empty

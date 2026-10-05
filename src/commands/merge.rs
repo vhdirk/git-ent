@@ -5,7 +5,7 @@
 //!
 //! - fast-forward when possible,
 //! - proper merge-commit otherwise,
-//! - conflict → abort with a helpful [`SgitError::Conflict`].
+//! - conflict --> abort with a helpful [`SgitError::Conflict`].
 //!
 //! When a submodule's HEAD advances as a result of the merge, the parent
 //! repo automatically records the moved submodule pointer in a follow-up
@@ -18,8 +18,8 @@ use git2::{
 use crate::RepoTree;
 use crate::error::{Result, SgitError};
 use crate::git::{head_commit, signature};
-use crate::repo_tree::{RepoHandle, changed_submodule_paths};
-
+use crate::repo_tree::{changed_submodule_paths};
+use crate::repo::Repo;
 /// Merge `branch` into each repo's current branch, depth-first.
 ///
 /// - `branch`: local branch name to merge from.
@@ -58,7 +58,7 @@ fn has_branch(repo: &Repository, branch: &str) -> bool {
 ///
 /// - `r`: repository handle used for merge and conflict reporting.
 /// - `branch`: local branch merged into current HEAD.
-fn merge_one(r: &RepoHandle, branch: &str) -> Result<()> {
+fn merge_one(r: &Repo, branch: &str) -> Result<()> {
     let repo = &r.repo;
     let br = repo.find_branch(branch, BranchType::Local)?;
     let target_oid = br

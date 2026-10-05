@@ -8,130 +8,7 @@ use git2::{Repository, StatusOptions, SubmoduleIgnore};
 
 use crate::config::SgitConfig;
 use crate::error::{Result, SgitError};
-
-/// A handle to a git repository within the tree.
-///
-/// Owns its [`Repository`] and remembers where it sits in the tree.
-pub struct RepoHandle {
-    /// The opened libgit2 repository.
-    pub repo: Repository,
-    /// Absolute path to the working directory.
-    pub workdir: PathBuf,
-    /// Path relative to the top-level repo (`"."` for the root).
-    pub prefix: PathBuf,
-}
-
-impl RepoHandle {
-    /// Human-readable label (relative path, or `"."` for root).
-    pub fn label(&self) -> String {
-        let p = self.prefix.to_string_lossy();
-        if p.is_empty() {
-            ".".into()
-        } else {
-            p.into_owned()
-        }
-    }
-
-    /// Label suitable for `git status`-style output
-    /// (`"(top-level)"` for the root).
-    pub fn display_label(&self) -> String {
-        if self.prefix.as_os_str().is_empty() || self.prefix == Path::new(".") {
-            "(top-level)".into()
-        } else {
-            self.prefix.to_string_lossy().into_owned()
-        }
-    }
-
-    /// Return the current branch name, or `None` if detached.
-    pub fn branch_name(&self) -> Option<String> {
-        if self.repo.head_detached().unwrap_or(false) {
-            return None;
-        }
-        let head = self.repo.head().ok()?;
-        head.shorthand().ok().map(str::to_string)
-    }
-
-    /// Return all staged, unstaged and untracked entries.
-    pub fn list_status(&self) -> Result<(Vec<StatusEntry>, Vec<StatusEntry>, Vec<StatusEntry>)> {
-        let mut opts = StatusOptions::new();
-        opts.include_untracked(true)
-            .renames_head_to_index(true)
-            .renames_index_to_workdir(true)
-            .recurse_untracked_dirs(true)
-            // treat submodules as unchanged when only their workdir differs;
-            // we handle submodule pointer staging explicitly elsewhere.
-            .exclude_submodules(false);
-
-        let statuses = self.repo.statuses(Some(&mut opts))?;
-        let mut staged = Vec::new();
-        let mut unstaged = Vec::new();
-        let mut untracked = Vec::new();
-
-        for s in statuses.iter() {
-            let flags = s.status();
-            let path = match s.path().ok() {
-                Some(p) => p.to_string(),
-                None => continue,
-            };
-
-            // -- index (staged) --
-            let kind_staged = if flags.contains(git2::Status::INDEX_NEW) {
-                Some(ChangeKind::New)
-            } else if flags.contains(git2::Status::INDEX_DELETED) {
-                Some(ChangeKind::Deleted)
-            } else if flags.contains(git2::Status::INDEX_RENAMED) {
-                Some(ChangeKind::Renamed)
-            } else if flags.contains(git2::Status::INDEX_TYPECHANGE) {
-                Some(ChangeKind::TypeChange)
-            } else if flags.contains(git2::Status::INDEX_MODIFIED) {
-                Some(ChangeKind::Modified)
-            } else {
-                None
-            };
-            if let Some(k) = kind_staged {
-                staged.push(StatusEntry {
-                    kind: k,
-                    path: path.clone(),
-                });
-            }
-
-            // -- workdir (unstaged / untracked) --
-            if flags.contains(git2::Status::WT_NEW) {
-                untracked.push(StatusEntry {
-                    kind: ChangeKind::New,
-                    path: path.clone(),
-                });
-            } else if flags.contains(git2::Status::WT_DELETED) {
-                unstaged.push(StatusEntry {
-                    kind: ChangeKind::Deleted,
-                    path: path.clone(),
-                });
-            } else if flags.contains(git2::Status::WT_RENAMED) {
-                unstaged.push(StatusEntry {
-                    kind: ChangeKind::Renamed,
-                    path: path.clone(),
-                });
-            } else if flags.contains(git2::Status::WT_TYPECHANGE) {
-                unstaged.push(StatusEntry {
-                    kind: ChangeKind::TypeChange,
-                    path,
-                });
-            } else if flags.contains(git2::Status::WT_MODIFIED) {
-                unstaged.push(StatusEntry {
-                    kind: ChangeKind::Modified,
-                    path,
-                });
-            }
-        }
-        Ok((staged, unstaged, untracked))
-    }
-
-    /// Convenience: `true` if `RepoTree` has any staged, unstaged or untracked changes.
-    pub fn has_changes(&self) -> Result<bool> {
-        let (s, u, ut) = self.list_status()?;
-        Ok(!s.is_empty() || !u.is_empty() || !ut.is_empty())
-    }
-}
+use crate::repo::Repo;
 
 /// A file change classification, modelled after `git status`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -167,9 +44,18 @@ pub struct StatusEntry {
 /// The root repo and all its (nested) submodule repos, in depth-first order.
 pub struct RepoTree {
     /// The top-level repository.
-    pub root: RepoHandle,
+    pub root: Repo,
     /// All submodules, deepest first.
-    pub submodules: Vec<RepoHandle>,
+    pub submodules: Vec<Repo>,
+}
+
+/// Join `prefix` and `path` for display (drops the empty prefix cleanly).
+pub(crate) fn prefix_path(prefix: &Path, path: &str) -> String {
+    if prefix.as_os_str().is_empty() {
+        path.to_string()
+    } else {
+        prefix.join(path).to_string_lossy().into_owned()
+    }
 }
 
 impl RepoTree {
@@ -185,13 +71,19 @@ impl RepoTree {
             .workdir()
             .ok_or_else(|| SgitError::Other("repo has no working directory".into()))?
             .to_path_buf();
+
+        // TODO: `start` will not always be the root of the repo tree:
+        // If we cd into a submodule and type 'sgit status', we should also see changes
+        // of parent and sibling submodules.
+
         // fs::canonicalize normalises symlinks; we want a stable top dir.
         let top = fs::canonicalize(&workdir).unwrap_or(workdir.clone());
-        let root = RepoHandle {
+        let root = Repo {
             repo,
             workdir: top.clone(),
             prefix: PathBuf::from("."),
         };
+
         let mut submodules = Vec::new();
         let root_cfg = SgitConfig::load(&top);
         let mut cfg_chain = vec![(top.clone(), root_cfg)];
@@ -200,15 +92,15 @@ impl RepoTree {
     }
 
     /// All repos, depth-first, root last.
-    pub fn all(&self) -> Vec<&RepoHandle> {
-        let mut v: Vec<&RepoHandle> = self.submodules.iter().collect();
+    pub fn all(&self) -> Vec<&Repo> {
+        let mut v: Vec<&Repo> = self.submodules.iter().collect();
         v.push(&self.root);
         v
     }
 
     /// Resolve `filename` (relative to cwd) to the *deepest* repo that
     /// owns it, along with the path relative to that repo's workdir.
-    pub fn resolve_file(&self, filename: &str) -> Option<(&RepoHandle, PathBuf)> {
+    pub fn resolve_file(&self, filename: &str) -> Option<(&Repo, PathBuf)> {
         let cwd = std::env::current_dir().ok()?;
         self.resolve_file_from(&cwd, filename)
     }
@@ -216,11 +108,11 @@ impl RepoTree {
     /// Like [`resolve_file`](Self::resolve_file) but with an explicit base
     /// directory, so callers (and tests) don't need to mutate the process
     /// working directory.
-    pub fn resolve_file_from(&self, base: &Path, filename: &str) -> Option<(&RepoHandle, PathBuf)> {
+    pub fn resolve_file_from(&self, base: &Path, filename: &str) -> Option<(&Repo, PathBuf)> {
         let raw = base.join(filename);
         let abs = fs::canonicalize(&raw).unwrap_or(raw);
 
-        let mut best: Option<(&RepoHandle, PathBuf, usize)> = None;
+        let mut best: Option<(&Repo, PathBuf, usize)> = None;
         for r in self.all() {
             if let Ok(rel) = abs.strip_prefix(&r.workdir) {
                 let depth = r.workdir.components().count();
@@ -234,7 +126,7 @@ impl RepoTree {
 
     /// Stage any submodule entries whose working-dir HEAD differs from
     /// the index. Returns the staged paths.
-    pub fn stage_submodule_pointers(&self, r: &RepoHandle) -> Result<Vec<String>> {
+    pub fn stage_submodule_pointers(&self, r: &Repo) -> Result<Vec<String>> {
         let changed = changed_submodule_paths(&r.repo)?;
         if !changed.is_empty() {
             let mut index = r.repo.index()?;
@@ -244,6 +136,78 @@ impl RepoTree {
             index.write()?;
         }
         Ok(changed)
+    }
+
+    /// Build a git-style commit message template (used by `commit` when the
+    /// user gives no `-m`).
+    pub fn build_commit_template(&self) -> Result<String> {
+        let mut lines: Vec<String> = vec![
+            "".into(),
+            "# Please enter the commit message for your changes. Lines starting".into(),
+            "# with '#' will be ignored, and an empty message aborts the commit.".into(),
+            "#".into(),
+        ];
+
+        let branch_name = self
+            .root
+            .branch_name()
+            .unwrap_or_else(|| "(detached HEAD)".to_string());
+        lines.push(format!("# On branch {branch_name}"));
+        lines.push("#".into());
+
+        let mut staged: Vec<StatusEntry> = Vec::new();
+        let mut unstaged: Vec<StatusEntry> = Vec::new();
+        let mut untracked: Vec<StatusEntry> = Vec::new();
+
+        for r in self.all() {
+            let prefix = if r.prefix == Path::new(".") {
+                PathBuf::new()
+            } else {
+                r.prefix.clone()
+            };
+            let (s, u, ut) = r.list_status()?;
+            for e in s {
+                staged.push(StatusEntry {
+                    kind: e.kind,
+                    path: prefix_path(&prefix, &e.path),
+                });
+            }
+            for e in u {
+                unstaged.push(StatusEntry {
+                    kind: e.kind,
+                    path: prefix_path(&prefix, &e.path),
+                });
+            }
+            for e in ut {
+                untracked.push(StatusEntry {
+                    kind: e.kind,
+                    path: prefix_path(&prefix, &e.path),
+                });
+            }
+        }
+
+        if !staged.is_empty() {
+            lines.push("# Changes to be committed:".into());
+            for e in &staged {
+                lines.push(format!("#\t{}{}", e.kind.label(), e.path));
+            }
+            lines.push("#".into());
+        }
+        if !unstaged.is_empty() {
+            lines.push("# Changes not staged for commit:".into());
+            for e in &unstaged {
+                lines.push(format!("#\t{}{}", e.kind.label(), e.path));
+            }
+            lines.push("#".into());
+        }
+        if !untracked.is_empty() {
+            lines.push("# Untracked files:".into());
+            for e in &untracked {
+                lines.push(format!("#\t{}", e.path));
+            }
+            lines.push("#".into());
+        }
+        Ok(lines.join("\n"))
     }
 }
 
@@ -262,7 +226,7 @@ fn collect_submodules(
     top: &Path,
     parent_workdir: &Path,
     cfg_chain: &mut Vec<(PathBuf, SgitConfig)>,
-    acc: &mut Vec<RepoHandle>,
+    acc: &mut Vec<Repo>,
 ) -> Result<()> {
     let subs = match repo.submodules() {
         Ok(v) => v,
@@ -301,7 +265,7 @@ fn collect_submodules(
             .strip_prefix(top)
             .unwrap_or(&sub_workdir)
             .to_path_buf();
-        acc.push(RepoHandle {
+        acc.push(Repo {
             repo: sub_repo,
             workdir: sub_workdir,
             prefix,

@@ -5,7 +5,7 @@ use git2::{BranchType, Cred, CredentialType, PushOptions, RemoteCallbacks, Repos
 use crate::RepoTree;
 use crate::error::Result;
 use crate::git::first_remote;
-use crate::repo_tree::RepoHandle;
+use crate::repo::Repo;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
@@ -45,10 +45,10 @@ fn push_tree(push_options: &[&str]) -> Result<()> {
 
 /// Push the current branch. Returns `Some(n)` if `n > 0` commits were
 /// pushed, `None` if nothing needed pushing / no remote / detached HEAD.
-fn push_one(r: &RepoHandle, push_options: &[&str]) -> Result<Option<PushResult>> {
+fn push_one(r: &Repo, push_options: &[&str]) -> Result<Option<PushResult>> {
     let repo = &r.repo;
 
-    // Detached HEAD → nothing to push.
+    // Detached HEAD --> nothing to push.
     if repo.head_detached().unwrap_or(false) {
         return Ok(None);
     }
@@ -176,7 +176,7 @@ fn commits_ahead(repo: &Repository, branch: &str, remote: &str) -> Result<usize>
     let upstream = match repo.refname_to_id(&format!("refs/remotes/{remote}/{branch}")) {
         Ok(o) => o,
         Err(_) => {
-            // No upstream yet → count commits unique to local via revwalk from local.
+            // No upstream yet --> count commits unique to local via revwalk from local.
             let mut walk = repo.revwalk()?;
             walk.push(local)?;
             return Ok(walk.count());

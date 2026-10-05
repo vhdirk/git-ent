@@ -7,7 +7,7 @@ cargo test
 ```
 
 The integration tests spin up ephemeral git repos (plain, flat
-submodules, and nested `main → mid → leaf` layouts) inside
+submodules, and nested `main --> mid --> leaf` layouts) inside
 `TempDir`s, then invoke the compiled `sgit` binary via
 [`assert_cmd`](https://docs.rs/assert_cmd).
 
