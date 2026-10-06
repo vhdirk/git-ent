@@ -74,6 +74,7 @@ fn push_one(r: &Repo, push_options: &[&str]) -> Result<Option<PushResult>> {
     // How many commits are ahead of upstream?
     let ahead = commits_ahead(repo, &branch_name, &remote_name).unwrap_or(0);
     if ahead == 0 {
+        println!("[{}] Everything up-to-date", r.label());
         return Ok(None);
     }
 
