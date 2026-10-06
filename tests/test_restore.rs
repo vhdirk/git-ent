@@ -1,7 +1,7 @@
 //! Tests for `sgit restore`.
 
 mod common;
-use sgit::commands;
+use sgit::cmd::restore::RestoreCmd;
 
 #[test]
 /// Test case for restore single file.
@@ -9,9 +9,13 @@ use sgit::commands;
 fn restore_single_file() {
     let p = common::plain_repo();
     std::fs::write(p.path.join("file.txt"), "changed\n").unwrap();
-    common::in_cwd(&p.path, || {
-        commands::restore::run(&["file.txt".into()], false)
-    })
+    common::in_cwd(
+        &p.path,
+        RestoreCmd {
+            paths: vec!["file.txt".into()],
+            staged: false,
+        },
+    )
     .unwrap();
     assert_eq!(
         std::fs::read_to_string(p.path.join("file.txt")).unwrap(),
@@ -25,7 +29,14 @@ fn restore_single_file() {
 fn restore_all_unstaged() {
     let p = common::plain_repo();
     std::fs::write(p.path.join("file.txt"), "changed\n").unwrap();
-    common::in_cwd(&p.path, || commands::restore::run(&[], false)).unwrap();
+    common::in_cwd(
+        &p.path,
+        RestoreCmd {
+            paths: vec![],
+            staged: false,
+        },
+    )
+    .unwrap();
     assert_eq!(
         std::fs::read_to_string(p.path.join("file.txt")).unwrap(),
         "content\n"
@@ -37,7 +48,14 @@ fn restore_all_unstaged() {
 ///
 fn restore_noop_on_clean_repo() {
     let p = common::plain_repo();
-    common::in_cwd(&p.path, || commands::restore::run(&[], false)).unwrap();
+    common::in_cwd(
+        &p.path,
+        RestoreCmd {
+            paths: vec![],
+            staged: false,
+        },
+    )
+    .unwrap();
 }
 
 #[test]
@@ -47,9 +65,13 @@ fn unstage_single_file() {
     let p = common::plain_repo();
     std::fs::write(p.path.join("file.txt"), "staged\n").unwrap();
     common::git(&p.path, &["add", "file.txt"]);
-    common::in_cwd(&p.path, || {
-        commands::restore::run(&["file.txt".into()], true)
-    })
+    common::in_cwd(
+        &p.path,
+        RestoreCmd {
+            paths: vec!["file.txt".into()],
+            staged: true,
+        },
+    )
     .unwrap();
 }
 
@@ -60,7 +82,14 @@ fn unstage_all() {
     let p = common::plain_repo();
     std::fs::write(p.path.join("file.txt"), "staged\n").unwrap();
     common::git(&p.path, &["add", "file.txt"]);
-    common::in_cwd(&p.path, || commands::restore::run(&[], true)).unwrap();
+    common::in_cwd(
+        &p.path,
+        RestoreCmd {
+            paths: vec![],
+            staged: true,
+        },
+    )
+    .unwrap();
 }
 
 #[test]
@@ -69,9 +98,13 @@ fn unstage_all() {
 fn restore_file_in_submodule() {
     let r = common::repo_with_submodules();
     std::fs::write(r.main.join("sub1/file1.txt"), "changed\n").unwrap();
-    common::in_cwd(&r.main, || {
-        commands::restore::run(&["sub1/file1.txt".into()], false)
-    })
+    common::in_cwd(
+        &r.main,
+        RestoreCmd {
+            paths: vec!["sub1/file1.txt".into()],
+            staged: false,
+        },
+    )
     .unwrap();
     assert_eq!(
         std::fs::read_to_string(r.main.join("sub1/file1.txt")).unwrap(),
@@ -84,8 +117,12 @@ fn restore_file_in_submodule() {
 ///
 fn restore_nonexistent_reports() {
     let p = common::plain_repo();
-    common::in_cwd(&p.path, || {
-        commands::restore::run(&["/nonexistent/file.txt".into()], false)
-    })
+    common::in_cwd(
+        &p.path,
+        RestoreCmd {
+            paths: vec!["/nonexistent/file.txt".into()],
+            staged: false,
+        },
+    )
     .unwrap();
 }

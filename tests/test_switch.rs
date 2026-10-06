@@ -1,18 +1,28 @@
 //! Tests for `sgit switch`.
 
 mod common;
-use sgit::commands;
+use sgit::cmd::{branch::BranchCmd, switch::SwitchCmd};
 
 #[test]
 /// Test case for switch existing branch across submodules.
 ///
 fn switch_existing_branch_across_submodules() {
     let r = common::repo_with_submodules();
-    common::in_cwd(&r.main, || commands::branch::run(Some("feature"))).unwrap();
+    common::in_cwd(
+        &r.main,
+        BranchCmd {
+            create: Some("feature".into()),
+        },
+    )
+    .unwrap();
 
-    common::in_cwd(&r.main, || {
-        commands::switch::run(Some("feature"), None, None, false)
-    })
+    common::in_cwd(
+        &r.main,
+        SwitchCmd {
+            create: Some("feature".into()),
+            ..Default::default()
+        },
+    )
     .unwrap();
 
     let branch_main = String::from_utf8_lossy(
@@ -30,9 +40,13 @@ fn switch_warns_if_branch_missing_in_submodules() {
     let r = common::repo_with_submodules();
     common::git(&r.main, ["branch", "only-root"].as_slice());
 
-    common::in_cwd(&r.main, || {
-        commands::switch::run(Some("only-root"), None, None, false)
-    })
+    common::in_cwd(
+        &r.main,
+        SwitchCmd {
+            create: Some("only-root".into()),
+            ..Default::default()
+        },
+    )
     .unwrap();
 }
 
@@ -42,9 +56,13 @@ fn switch_warns_if_branch_missing_in_submodules() {
 fn switch_c_creates_branch_everywhere() {
     let r = common::repo_with_submodules();
 
-    common::in_cwd(&r.main, || {
-        commands::switch::run(None, Some("topic"), None, false)
-    })
+    common::in_cwd(
+        &r.main,
+        SwitchCmd {
+            create: Some("topic".into()),
+            ..Default::default()
+        },
+    )
     .unwrap();
 
     let exists_main = String::from_utf8_lossy(
@@ -87,9 +105,13 @@ fn switch_force_create_resets_branch_pointer() {
     common::git(&p.path, ["add", "file.txt"].as_slice());
     common::git(&p.path, ["commit", "-q", "-m", "advance main"].as_slice());
 
-    common::in_cwd(&p.path, || {
-        commands::switch::run(None, None, Some("topic"), false)
-    })
+    common::in_cwd(
+        &p.path,
+        SwitchCmd {
+            force_create: Some("topic".into()),
+            ..Default::default()
+        },
+    )
     .unwrap();
 
     let head_name = String::from_utf8_lossy(
@@ -116,9 +138,14 @@ fn switch_force_create_resets_branch_pointer() {
 ///
 fn switch_detach_moves_to_detached_head() {
     let p = common::plain_repo();
-    common::in_cwd(&p.path, || {
-        commands::switch::run(Some("HEAD"), None, None, true)
-    })
+    common::in_cwd(
+        &p.path,
+        SwitchCmd {
+            create: Some("HEAD".into()),
+            detach: true,
+            ..Default::default()
+        },
+    )
     .unwrap();
 
     let head_name = String::from_utf8_lossy(
@@ -133,10 +160,5 @@ fn switch_detach_moves_to_detached_head() {
 /// Test case for switch invalid usage when target is missing.
 ///
 fn switch_invalid_usage_without_target() {
-    assert!(
-        common::in_cwd(&std::env::temp_dir(), || commands::switch::run(
-            None, None, None, false
-        ))
-        .is_err()
-    );
+    assert!(common::in_cwd(&std::env::temp_dir(), SwitchCmd::default()).is_err());
 }

@@ -1,14 +1,20 @@
 //! Tests for `sgit branch`.
 
 mod common;
-use sgit::commands;
+use sgit::cmd::branch::BranchCmd;
 
 #[test]
 /// Test case for creates branch in plain repo.
 ///
 fn creates_branch_in_plain_repo() {
     let p = common::plain_repo();
-    common::in_cwd(&p.path, || commands::branch::run(Some("feature-a"))).unwrap();
+    common::in_cwd(
+        &p.path,
+        BranchCmd {
+            create: Some("feature-a".into()),
+        },
+    )
+    .unwrap();
 
     let out = common::git_out(&p.path, &["branch"]);
     assert!(String::from_utf8_lossy(&out.stdout).contains("feature-a"));
@@ -19,7 +25,13 @@ fn creates_branch_in_plain_repo() {
 ///
 fn creates_branch_across_submodules() {
     let r = common::repo_with_submodules();
-    common::in_cwd(&r.main, || commands::branch::run(Some("feature-b"))).unwrap();
+    common::in_cwd(
+        &r.main,
+        BranchCmd {
+            create: Some("feature-b".into()),
+        },
+    )
+    .unwrap();
 
     let root_branches =
         String::from_utf8_lossy(&common::git_out(&r.main, &["branch"]).stdout).to_string();
@@ -39,7 +51,13 @@ fn creates_branch_across_submodules() {
 ///
 fn creates_branch_nested() {
     let r = common::nested_submodules();
-    common::in_cwd(&r.main, || commands::branch::run(Some("deep-branch"))).unwrap();
+    common::in_cwd(
+        &r.main,
+        BranchCmd {
+            create: Some("deep-branch".into()),
+        },
+    )
+    .unwrap();
 
     let root_branches =
         String::from_utf8_lossy(&common::git_out(&r.main, &["branch"]).stdout).to_string();
@@ -59,8 +77,20 @@ fn creates_branch_nested() {
 ///
 fn duplicate_branch_is_idempotent() {
     let p = common::plain_repo();
-    common::in_cwd(&p.path, || commands::branch::run(Some("dup"))).unwrap();
-    common::in_cwd(&p.path, || commands::branch::run(Some("dup"))).unwrap();
+    common::in_cwd(
+        &p.path,
+        BranchCmd {
+            create: Some("dup".into()),
+        },
+    )
+    .unwrap();
+    common::in_cwd(
+        &p.path,
+        BranchCmd {
+            create: Some("dup".into()),
+        },
+    )
+    .unwrap();
 }
 
 #[test]
@@ -69,7 +99,7 @@ fn duplicate_branch_is_idempotent() {
 fn lists_branches_plain() {
     let p = common::plain_repo();
     common::git(&p.path, &["branch", "other"]);
-    common::in_cwd(&p.path, || commands::branch::run(None)).unwrap();
+    common::in_cwd(&p.path, BranchCmd { create: None }).unwrap();
 }
 
 #[test]
@@ -77,7 +107,7 @@ fn lists_branches_plain() {
 ///
 fn lists_branches_with_submodules() {
     let r = common::repo_with_submodules();
-    common::in_cwd(&r.main, || commands::branch::run(None)).unwrap();
+    common::in_cwd(&r.main, BranchCmd { create: None }).unwrap();
 }
 
 #[test]
@@ -85,5 +115,11 @@ fn lists_branches_with_submodules() {
 ///
 fn long_create_flag() {
     let p = common::plain_repo();
-    common::in_cwd(&p.path, || commands::branch::run(Some("long-flag"))).unwrap();
+    common::in_cwd(
+        &p.path,
+        BranchCmd {
+            create: Some("long-flag".into()),
+        },
+    )
+    .unwrap();
 }

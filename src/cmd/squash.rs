@@ -7,37 +7,57 @@
 use git2::{BranchType, Oid, Repository, ResetType};
 
 use crate::RepoTree;
-use crate::commands::reset::reset_to;
+use crate::cmd::command::{Command, Context};
+use crate::cmd::reset::reset_to;
 use crate::error::{Result, SgitError};
 use crate::git::signature;
-use crate::repo_tree::{changed_submodule_paths};
 use crate::repo::Repo;
-/// Squash commits since merge-base against `branch` in every repo.
-///
-/// - `branch`: target branch used to compute merge-base.
-/// - `message`: optional explicit squash commit message.
-pub fn run(branch: &str, message: Option<&str>) -> Result<()> {
-    let tree = RepoTree::discover(None)?;
+use crate::repo_tree::changed_submodule_paths;
+use clap::Args;
 
-    for r in tree.all() {
-        let label = r.label();
-        match squash_one(r, branch, message) {
-            Ok(SquashOutcome::Skipped(reason)) => {
-                println!("[{label}] Skipping: {reason}");
+/// Squash all commits since the common ancestor with <branch>.
+///
+/// Mirrors GitHub/GitLab's "squash and merge" semantics but depth-first
+/// across submodules: each submodule is squashed first, then the
+/// updated submodule pointer is rolled into the parent's squash commit.
+#[derive(Default, Debug, Args)]
+pub struct SquashCmd {
+    /// The base branch whose merge-base defines the squash range.
+    pub branch: String,
+    /// Commit message for the squash. Defaults to the concatenated
+    /// subjects of the squashed commits.
+    #[arg(short = 'm', long = "message")]
+    pub message: Option<String>,
+}
+
+impl Command for SquashCmd {
+    /// Squash commits since merge-base against `branch` in every repo.
+    ///
+    /// - `branch`: target branch used to compute merge-base.
+    /// - `message`: optional explicit squash commit message.
+    fn run(&self, ctx: &Context) -> Result<()> {
+        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+
+        for r in tree.all() {
+            let label = r.label();
+            match squash_one(r, &self.branch, self.message.as_deref()) {
+                Ok(SquashOutcome::Skipped(reason)) => {
+                    println!("[{label}] Skipping: {reason}");
+                }
+                Ok(SquashOutcome::Nothing) => {
+                    println!("[{label}] Nothing to squash");
+                }
+                Ok(SquashOutcome::Squashed(n)) => {
+                    println!("[{label}] Squashed {n} commit(s)");
+                }
+                Ok(SquashOutcome::PointerOnly) => {
+                    println!("[{label}] Committed updated submodule ref(s)");
+                }
+                Err(e) => return Err(e),
             }
-            Ok(SquashOutcome::Nothing) => {
-                println!("[{label}] Nothing to squash");
-            }
-            Ok(SquashOutcome::Squashed(n)) => {
-                println!("[{label}] Squashed {n} commit(s)");
-            }
-            Ok(SquashOutcome::PointerOnly) => {
-                println!("[{label}] Committed updated submodule ref(s)");
-            }
-            Err(e) => return Err(e),
         }
+        Ok(())
     }
-    Ok(())
 }
 
 enum SquashOutcome {

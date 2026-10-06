@@ -2,7 +2,7 @@
 
 mod common;
 
-use sgit::commands;
+use sgit::cmd::push::PushCmd;
 use std::path::Path;
 
 #[test]
@@ -10,7 +10,7 @@ use std::path::Path;
 ///
 fn no_remote_does_nothing() {
     let p = common::plain_repo();
-    common::in_cwd(&p.path, || commands::push::run(&[])).unwrap();
+    common::in_cwd(&p.path, PushCmd::default()).unwrap();
 }
 
 /// Test case for repo with remote.
@@ -42,7 +42,7 @@ fn repo_with_remote(base: &Path) -> std::path::PathBuf {
 fn pushes_ahead_commits() {
     let tmp = tempfile::tempdir().unwrap();
     let repo = repo_with_remote(tmp.path());
-    common::in_cwd(&repo, || commands::push::run(&[])).unwrap();
+    common::in_cwd(&repo, PushCmd::default()).unwrap();
 }
 
 #[test]
@@ -52,5 +52,5 @@ fn nothing_to_push_when_up_to_date() {
     let tmp = tempfile::tempdir().unwrap();
     let repo = repo_with_remote(tmp.path());
     common::git(&repo, &["push", "-q"]);
-    common::in_cwd(&repo, || commands::push::run(&[])).unwrap();
+    common::in_cwd(&repo, PushCmd::default()).unwrap();
 }

@@ -2,7 +2,7 @@
 
 mod common;
 
-use sgit::commands;
+use sgit::cmd::update::UpdateCmd;
 use std::path::Path;
 
 #[test]
@@ -10,7 +10,7 @@ use std::path::Path;
 ///
 fn update_noop_without_submodules() {
     let p = common::plain_repo();
-    common::in_cwd(&p.path, commands::update::run).unwrap();
+    common::in_cwd(&p.path, UpdateCmd {}).unwrap();
 }
 
 #[test]
@@ -51,6 +51,6 @@ fn update_initializes_submodules() {
     assert!(clone.join("mysub").exists());
     assert!(!clone.join("mysub/sub.txt").exists());
 
-    common::in_cwd(&clone, commands::update::run).unwrap();
+    common::in_cwd(&clone, UpdateCmd {}).unwrap();
     assert!(clone.join("mysub/sub.txt").exists());
 }

@@ -8,6 +8,7 @@ pub mod add;
 pub mod branch;
 pub mod checkout;
 pub mod clone;
+pub mod command;
 pub mod commit;
 pub mod merge;
 pub mod push;

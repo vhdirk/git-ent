@@ -4,11 +4,11 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use git2::{Repository, StatusOptions, SubmoduleIgnore};
+use git2::{Repository, SubmoduleIgnore};
 
 use crate::config::SgitConfig;
 use crate::error::{Result, SgitError};
-use crate::repo::Repo;
+use crate::repo::{Repo, RepoStatus};
 
 /// A file change classification, modelled after `git status`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -18,6 +18,7 @@ pub enum ChangeKind {
     Deleted,
     Renamed,
     TypeChange,
+    Untracked,
 }
 
 impl ChangeKind {
@@ -29,6 +30,7 @@ impl ChangeKind {
             ChangeKind::Deleted => "deleted:    ",
             ChangeKind::Renamed => "renamed:    ",
             ChangeKind::TypeChange => "typechange: ",
+            ChangeKind::Untracked => "untracked:  ",
         }
     }
 }
@@ -81,7 +83,7 @@ impl RepoTree {
         let root = Repo {
             repo,
             workdir: top.clone(),
-            prefix: PathBuf::from("."),
+            prefix: None,
         };
 
         let mut submodules = Vec::new();
@@ -100,15 +102,64 @@ impl RepoTree {
 
     /// Resolve `filename` (relative to cwd) to the *deepest* repo that
     /// owns it, along with the path relative to that repo's workdir.
-    pub fn resolve_file(&self, filename: &str) -> Option<(&Repo, PathBuf)> {
+    pub fn resolve_file(&self, filename: &Path) -> Option<(&Repo, PathBuf)> {
         let cwd = std::env::current_dir().ok()?;
         self.resolve_file_from(&cwd, filename)
+    }
+
+    pub fn stage(&self, filename: &Path) -> Result<()> {
+        if let Some((repo, rel)) = self.resolve_file(filename) {
+            repo.stage(&rel)
+        } else {
+            Err(SgitError::Other(format!(
+                "File {} is not in any known repo/submodule",
+                filename.display()
+            )))
+        }
+    }
+
+    pub fn status(&self) -> Result<RepoStatus> {
+        let mut all_staged: Vec<StatusEntry> = Vec::new();
+        let mut all_unstaged: Vec<StatusEntry> = Vec::new();
+        let mut all_untracked: Vec<StatusEntry> = Vec::new();
+
+        for r in self.all() {
+            let prefix = if r.prefix == None {
+                PathBuf::new()
+            } else {
+                r.prefix.clone().unwrap()
+            };
+            let status = r.status()?;
+            for s in status.staged {
+                all_staged.push(StatusEntry {
+                    kind: s.kind,
+                    path: prefix_path(&prefix, &s.path),
+                });
+            }
+            for u in status.unstaged {
+                all_unstaged.push(StatusEntry {
+                    kind: u.kind,
+                    path: prefix_path(&prefix, &u.path),
+                });
+            }
+            for u in status.untracked {
+                all_untracked.push(StatusEntry {
+                    kind: u.kind,
+                    path: prefix_path(&prefix, &u.path),
+                });
+            }
+        }
+        Ok(RepoStatus {
+            staged: all_staged,
+            unstaged: all_unstaged,
+            untracked: all_untracked,
+        })
     }
 
     /// Like [`resolve_file`](Self::resolve_file) but with an explicit base
     /// directory, so callers (and tests) don't need to mutate the process
     /// working directory.
-    pub fn resolve_file_from(&self, base: &Path, filename: &str) -> Option<(&Repo, PathBuf)> {
+    pub fn resolve_file_from(&self, base: &Path, filename: &Path) -> Option<(&Repo, PathBuf)> {
         let raw = base.join(filename);
         let abs = fs::canonicalize(&raw).unwrap_or(raw);
 
@@ -155,54 +206,25 @@ impl RepoTree {
         lines.push(format!("# On branch {branch_name}"));
         lines.push("#".into());
 
-        let mut staged: Vec<StatusEntry> = Vec::new();
-        let mut unstaged: Vec<StatusEntry> = Vec::new();
-        let mut untracked: Vec<StatusEntry> = Vec::new();
+        let status = self.status()?;
 
-        for r in self.all() {
-            let prefix = if r.prefix == Path::new(".") {
-                PathBuf::new()
-            } else {
-                r.prefix.clone()
-            };
-            let (s, u, ut) = r.list_status()?;
-            for e in s {
-                staged.push(StatusEntry {
-                    kind: e.kind,
-                    path: prefix_path(&prefix, &e.path),
-                });
-            }
-            for e in u {
-                unstaged.push(StatusEntry {
-                    kind: e.kind,
-                    path: prefix_path(&prefix, &e.path),
-                });
-            }
-            for e in ut {
-                untracked.push(StatusEntry {
-                    kind: e.kind,
-                    path: prefix_path(&prefix, &e.path),
-                });
-            }
-        }
-
-        if !staged.is_empty() {
+        if !status.staged.is_empty() {
             lines.push("# Changes to be committed:".into());
-            for e in &staged {
+            for e in &status.staged {
                 lines.push(format!("#\t{}{}", e.kind.label(), e.path));
             }
             lines.push("#".into());
         }
-        if !unstaged.is_empty() {
+        if !status.unstaged.is_empty() {
             lines.push("# Changes not staged for commit:".into());
-            for e in &unstaged {
+            for e in &status.unstaged {
                 lines.push(format!("#\t{}{}", e.kind.label(), e.path));
             }
             lines.push("#".into());
         }
-        if !untracked.is_empty() {
+        if !status.untracked.is_empty() {
             lines.push("# Untracked files:".into());
-            for e in &untracked {
+            for e in &status.untracked {
                 lines.push(format!("#\t{}", e.path));
             }
             lines.push("#".into());
@@ -268,7 +290,7 @@ fn collect_submodules(
         acc.push(Repo {
             repo: sub_repo,
             workdir: sub_workdir,
-            prefix,
+            prefix: Some(prefix),
         });
     }
     Ok(())

@@ -1,18 +1,29 @@
 //! Tests for `sgit checkout`.
 
 mod common;
-use sgit::commands;
+use sgit::cmd::{branch::BranchCmd, checkout::CheckoutCmd};
 
 #[test]
 /// Test case for checkout existing branch across submodules.
 ///
 fn checkout_existing_branch_across_submodules() {
     let r = common::repo_with_submodules();
-    common::in_cwd(&r.main, || commands::branch::run(Some("feature"))).unwrap();
+    common::in_cwd(
+        &r.main,
+        BranchCmd {
+            create: Some("feature".into()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
-    common::in_cwd(&r.main, || {
-        commands::checkout::run(Some("feature"), None, &[])
-    })
+    common::in_cwd(
+        &r.main,
+        CheckoutCmd {
+            branch: Some("feature".into()),
+            ..Default::default()
+        },
+    )
     .unwrap();
 
     let b_main = String::from_utf8_lossy(
@@ -51,9 +62,13 @@ fn checkout_warns_if_branch_missing_in_submodules() {
     let r = common::repo_with_submodules();
     common::git(&r.main, ["branch", "only-root"].as_slice());
 
-    common::in_cwd(&r.main, || {
-        commands::checkout::run(Some("only-root"), None, &[])
-    })
+    common::in_cwd(
+        &r.main,
+        CheckoutCmd {
+            branch: Some("only-root".into()),
+            ..Default::default()
+        },
+    )
     .unwrap();
 
     let b_main = String::from_utf8_lossy(
@@ -70,9 +85,13 @@ fn checkout_warns_if_branch_missing_in_submodules() {
 fn checkout_b_creates_branch_everywhere() {
     let r = common::repo_with_submodules();
 
-    common::in_cwd(&r.main, || {
-        commands::checkout::run(None, Some("topic"), &[])
-    })
+    common::in_cwd(
+        &r.main,
+        CheckoutCmd {
+            create: Some("topic".into()),
+            ..Default::default()
+        },
+    )
     .unwrap();
 
     let exists_main = String::from_utf8_lossy(
@@ -109,11 +128,12 @@ fn checkout_b_creates_branch_everywhere() {
 ///
 fn checkout_invalid_usage_without_branch() {
     assert!(
-        common::in_cwd(&std::env::temp_dir(), || commands::checkout::run(
-            None,
-            None,
-            &[]
-        ))
+        common::in_cwd(
+            &std::env::temp_dir(),
+            CheckoutCmd {
+                ..Default::default()
+            }
+        )
         .is_err()
     );
 }
@@ -123,7 +143,14 @@ fn checkout_invalid_usage_without_branch() {
 ///
 fn checkout_branch_files_routes_to_submodule() {
     let r = common::repo_with_submodules();
-    common::in_cwd(&r.main, || commands::branch::run(Some("feature"))).unwrap();
+    common::in_cwd(
+        &r.main,
+        BranchCmd {
+            create: Some("feature".into()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
     common::git(
         &r.main.join("sub1"),
@@ -137,9 +164,14 @@ fn checkout_branch_files_routes_to_submodule() {
     );
     common::git(&r.main.join("sub1"), ["checkout", "-q", "main"].as_slice());
 
-    common::in_cwd(&r.main, || {
-        commands::checkout::run(Some("feature"), None, &["sub1/file1.txt".into()])
-    })
+    common::in_cwd(
+        &r.main,
+        CheckoutCmd {
+            branch: Some("feature".into()),
+            paths: vec!["sub1/file1.txt".into()],
+            ..Default::default()
+        },
+    )
     .unwrap();
 
     assert_eq!(
@@ -165,8 +197,13 @@ fn checkout_branch_files_warns_for_missing_branch_in_submodule() {
     let r = common::repo_with_submodules();
     common::git(&r.main, ["branch", "only-root"].as_slice());
 
-    common::in_cwd(&r.main, || {
-        commands::checkout::run(Some("only-root"), None, &["sub1/file1.txt".into()])
-    })
+    common::in_cwd(
+        &r.main,
+        CheckoutCmd {
+            branch: Some("only-root".into()),
+            paths: vec!["sub1/file1.txt".into()],
+            ..Default::default()
+        },
+    )
     .unwrap();
 }

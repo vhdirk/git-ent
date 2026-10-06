@@ -83,6 +83,7 @@
                 libgit2.dev
                 openssl.dev
                 cargo-tarpaulin
+                cargo-expand
                 # config.packages.sgit
               ];
             };

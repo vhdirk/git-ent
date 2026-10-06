@@ -2,7 +2,7 @@
 
 mod common;
 
-use sgit::commands;
+use sgit::cmd::clone::CloneCmd;
 use std::path::Path;
 
 /// Test case for cloneable.
@@ -31,12 +31,13 @@ fn clone_with_explicit_dest() {
     let src = cloneable(tmp.path());
     let dest = tmp.path().join("cloned");
 
-    common::in_cwd(tmp.path(), || {
-        commands::clone::run(
-            &src.display().to_string(),
-            Some(&dest.display().to_string()),
-        )
-    })
+    common::in_cwd(
+        tmp.path(),
+        CloneCmd {
+            url: src.display().to_string(),
+            dest: Some(dest.clone()),
+        },
+    )
     .unwrap();
 
     assert!(dest.join("readme.txt").exists());
@@ -50,9 +51,13 @@ fn clone_infers_dest() {
     let tmp = tempfile::tempdir().unwrap();
     let src = cloneable(tmp.path());
 
-    common::in_cwd(tmp.path(), || {
-        commands::clone::run(&src.display().to_string(), None)
-    })
+    common::in_cwd(
+        tmp.path(),
+        CloneCmd {
+            url: src.display().to_string(),
+            dest: None,
+        },
+    )
     .unwrap();
 
     let inferred = tmp.path().join("project");
