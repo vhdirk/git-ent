@@ -10,10 +10,11 @@
 //! - [`SgitError`] - the crate-wide error type.
 
 pub mod cli;
-pub mod commands;
+pub mod cmd;
 pub mod config;
 pub mod error;
 pub mod git;
+pub mod repo;
 pub mod repo_tree;
 
 pub use error::{Result, SgitError};

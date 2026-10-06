@@ -1,54 +1,59 @@
 //! `sgit push`- push across the whole tree via libgit2.
 
-use git2::{BranchType, Cred, CredentialType, PushOptions, RemoteCallbacks, Repository};
-
 use crate::RepoTree;
+use crate::cmd::command::{Cmd, Context};
 use crate::error::Result;
 use crate::git::first_remote;
-use crate::repo_tree::RepoHandle;
+use crate::repo::Repo;
+use clap::Args;
+use git2::{BranchType, Cred, CredentialType, PushOptions, RemoteCallbacks, Repository};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+
+/// Push to remote across all repos that have commits to push.
+#[derive(Default, Debug, Args)]
+pub struct PushCmd {
+    /// Push options (`-o`). Can be specified multiple times.
+    #[arg(short = 'o', long = "push-option")]
+    pub option: Vec<String>,
+}
+
+impl Cmd for PushCmd {
+    /// Iterate the repo tree and push each eligible repo.
+    ///
+    /// - `push_options`: push options forwarded to each remote push call.
+    fn run(&self, ctx: &Context) -> Result<()> {
+        let opts: Vec<&str> = self.option.iter().map(String::as_str).collect();
+
+        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+        for r in tree.all() {
+            let label = r.label();
+            match push_one(r, &opts) {
+                Ok(Some(res)) => {
+                    println!("[{label}] Pushed {} commit(s)", res.ahead);
+                    for notice in res.notices {
+                        println!("[{label}] {notice}");
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => eprintln!("[{label}] Error pushing: {e}"),
+            }
+        }
+        Ok(())
+    }
+}
 
 struct PushResult {
     ahead: usize,
     notices: Vec<String>,
 }
 
-/// Push recursively with user-provided push options.
-///
-/// - `push_option`: repeatable options passed through to remote push.
-pub fn run(push_option: &[String]) -> Result<()> {
-    let opts: Vec<&str> = push_option.iter().map(String::as_str).collect();
-    push_tree(&opts)
-}
-
-/// Iterate the repo tree and push each eligible repo.
-///
-/// - `push_options`: push options forwarded to each remote push call.
-fn push_tree(push_options: &[&str]) -> Result<()> {
-    let tree = RepoTree::discover(None)?;
-    for r in tree.all() {
-        let label = r.label();
-        match push_one(r, push_options) {
-            Ok(Some(res)) => {
-                println!("[{label}] Pushed {} commit(s)", res.ahead);
-                for notice in res.notices {
-                    println!("[{label}] {notice}");
-                }
-            }
-            Ok(None) => {}
-            Err(e) => eprintln!("[{label}] Error pushing: {e}"),
-        }
-    }
-    Ok(())
-}
-
 /// Push the current branch. Returns `Some(n)` if `n > 0` commits were
 /// pushed, `None` if nothing needed pushing / no remote / detached HEAD.
-fn push_one(r: &RepoHandle, push_options: &[&str]) -> Result<Option<PushResult>> {
+fn push_one(r: &Repo, push_options: &[&str]) -> Result<Option<PushResult>> {
     let repo = &r.repo;
 
-    // Detached HEAD → nothing to push.
+    // Detached HEAD --> nothing to push.
     if repo.head_detached().unwrap_or(false) {
         return Ok(None);
     }
@@ -78,6 +83,8 @@ fn push_one(r: &RepoHandle, push_options: &[&str]) -> Result<Option<PushResult>>
     let sideband_capture = Arc::clone(&sideband_lines);
 
     let mut callbacks = RemoteCallbacks::new();
+
+    // TODO: first collect all sideband lines, THEN split into lines
     callbacks.sideband_progress(move |data| {
         if let Ok(text) = std::str::from_utf8(data) {
             if let Ok(mut lines) = sideband_capture.lock() {
@@ -91,6 +98,7 @@ fn push_one(r: &RepoHandle, push_options: &[&str]) -> Result<Option<PushResult>>
         }
         true
     });
+
     callbacks.credentials(|url, username_from_url, allowed| {
         // SSH: auth via agent or standard key files (~/.ssh/id_*)
         // libgit2 requires a callback for SSH; this callback follows standard SSH behavior.
@@ -160,7 +168,6 @@ fn extract_push_notices(lines: &[String]) -> Vec<String> {
             lower.contains("http://")
                 || lower.contains("https://")
                 || lower.contains("merge request")
-                || lower.contains("merge_requests")
         })
         .cloned()
         .collect()
@@ -176,7 +183,7 @@ fn commits_ahead(repo: &Repository, branch: &str, remote: &str) -> Result<usize>
     let upstream = match repo.refname_to_id(&format!("refs/remotes/{remote}/{branch}")) {
         Ok(o) => o,
         Err(_) => {
-            // No upstream yet → count commits unique to local via revwalk from local.
+            // No upstream yet --> count commits unique to local via revwalk from local.
             let mut walk = repo.revwalk()?;
             walk.push(local)?;
             return Ok(walk.count());

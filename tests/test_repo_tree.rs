@@ -2,7 +2,7 @@
 
 mod common;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use sgit::RepoTree;
 
@@ -163,7 +163,9 @@ fn resolve_file_routes_to_submodule() {
     let r = common::repo_with_submodules();
     std::fs::write(r.main.join("sub1/new.txt"), "x\n").unwrap();
     let tree = tree_at(&r.main);
-    let (repo, rel) = tree.resolve_file_from(&r.main, "sub1/new.txt").unwrap();
+    let (repo, rel) = tree
+        .resolve_file_from(&r.main, &PathBuf::from("sub1/new.txt"))
+        .unwrap();
     assert_eq!(repo.workdir.file_name().unwrap().to_string_lossy(), "sub1");
     assert_eq!(rel, std::path::PathBuf::from("new.txt"));
 }
@@ -174,7 +176,9 @@ fn resolve_file_routes_to_submodule() {
 fn resolve_file_routes_to_toplevel() {
     let r = common::repo_with_submodules();
     let tree = tree_at(&r.main);
-    let (repo, _rel) = tree.resolve_file_from(&r.main, "main.txt").unwrap();
+    let (repo, _rel) = tree
+        .resolve_file_from(&r.main, &PathBuf::from("main.txt"))
+        .unwrap();
     assert_eq!(
         std::fs::canonicalize(&repo.workdir).unwrap(),
         std::fs::canonicalize(&tree.root.workdir).unwrap(),
@@ -188,7 +192,7 @@ fn list_status_detects_changes() {
     let p = common::plain_repo();
     std::fs::write(p.path.join("file.txt"), "changed\n").unwrap();
     let tree = tree_at(&p.path);
-    let (_s, u, _ut) = tree.root.list_status().unwrap();
-    assert!(!u.is_empty());
+    let status = tree.root.status().unwrap();
+    assert!(!status.unstaged.is_empty());
     assert!(tree.root.has_changes().unwrap());
 }

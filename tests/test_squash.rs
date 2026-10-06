@@ -3,14 +3,21 @@
 //! depth-first across submodules.
 
 mod common;
-use sgit::commands;
+use sgit::cmd::{branch::BranchCmd, squash::SquashCmd};
 
 #[test]
 /// Test case for squash missing branch skips.
 ///
 fn squash_missing_branch_skips() {
     let p = common::plain_repo();
-    common::in_cwd(&p.path, || commands::squash::run("nonexistent", None)).unwrap();
+    common::in_cwd(
+        &p.path,
+        SquashCmd {
+            branch: "nonexistent".into(),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 }
 
 #[test]
@@ -19,7 +26,7 @@ fn squash_missing_branch_skips() {
 fn squash_collapses_multiple_commits_into_one() {
     let p = common::plain_repo();
     // Baseline commit is on main. Branch off a new feature and make two
-    // commits. Squash onto main → a single commit replaces the two.
+    // commits. Squash onto main --> a single commit replaces the two.
     common::git(&p.path, &["checkout", "-q", "-b", "feature"]);
     std::fs::write(p.path.join("a.txt"), "a\n").unwrap();
     common::git(&p.path, &["add", "a.txt"]);
@@ -34,7 +41,14 @@ fn squash_collapses_multiple_commits_into_one() {
             .to_string();
     assert_eq!(before, "3"); // initial + 2
 
-    common::in_cwd(&p.path, || commands::squash::run("main", None)).unwrap();
+    common::in_cwd(
+        &p.path,
+        SquashCmd {
+            branch: "main".into(),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
     let after =
         String::from_utf8_lossy(&common::git_out(&p.path, &["rev-list", "--count", "HEAD"]).stdout)
@@ -60,7 +74,15 @@ fn squash_custom_message() {
     common::git(&p.path, &["add", "b.txt"]);
     common::git(&p.path, &["commit", "-q", "-m", "commit 2"]);
 
-    common::in_cwd(&p.path, || commands::squash::run("main", Some("my squash"))).unwrap();
+    common::in_cwd(
+        &p.path,
+        SquashCmd {
+            branch: "main".into(),
+            message: Some("my squash".into()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
     let msg =
         String::from_utf8_lossy(&common::git_out(&p.path, &["log", "-1", "--pretty=%s"]).stdout)
@@ -82,7 +104,14 @@ fn squash_default_message_lists_subjects() {
     common::git(&p.path, &["add", "b.txt"]);
     common::git(&p.path, &["commit", "-q", "-m", "second change"]);
 
-    common::in_cwd(&p.path, || commands::squash::run("main", None)).unwrap();
+    common::in_cwd(
+        &p.path,
+        SquashCmd {
+            branch: "main".into(),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
     let body =
         String::from_utf8_lossy(&common::git_out(&p.path, &["log", "-1", "--pretty=%B"]).stdout)
@@ -97,7 +126,14 @@ fn squash_default_message_lists_subjects() {
 fn squash_skips_when_on_target_branch() {
     let p = common::plain_repo();
     // We are on main and trying to squash onto main.
-    common::in_cwd(&p.path, || commands::squash::run("main", None)).unwrap();
+    common::in_cwd(
+        &p.path,
+        SquashCmd {
+            branch: "main".into(),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 }
 
 #[test]
@@ -107,7 +143,14 @@ fn squash_nothing_to_squash_when_already_at_merge_base() {
     let p = common::plain_repo();
     common::git(&p.path, &["checkout", "-q", "-b", "feature"]);
     // No new commits; feature == main.
-    common::in_cwd(&p.path, || commands::squash::run("main", None)).unwrap();
+    common::in_cwd(
+        &p.path,
+        SquashCmd {
+            branch: "main".into(),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 }
 
 #[test]
@@ -117,7 +160,13 @@ fn squash_across_submodules_depth_first() {
     let r = common::repo_with_submodules();
 
     // Create `feature` branches everywhere.
-    common::in_cwd(&r.main, || commands::branch::run(Some("feature"))).unwrap();
+    common::in_cwd(
+        &r.main,
+        BranchCmd {
+            create: Some("feature".into()),
+        },
+    )
+    .unwrap();
 
     // Check out `feature` in every repo (recursively).
     common::git(&r.main, &["checkout", "-q", "feature"]);
@@ -151,7 +200,14 @@ fn squash_across_submodules_depth_first() {
     .trim()
     .to_string();
 
-    common::in_cwd(&r.main, || commands::squash::run("main", None)).unwrap();
+    common::in_cwd(
+        &r.main,
+        SquashCmd {
+            branch: "main".into(),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
     // sub1 should collapse 2 commits into 1.
     let sub1_after: i32 = String::from_utf8_lossy(
@@ -181,7 +237,13 @@ fn squash_submodule_only_creates_parent_pointer_commit() {
     // commits to squash, the parent still needs a new commit recording the
     // moved submodule pointer.
     let r = common::repo_with_submodules();
-    common::in_cwd(&r.main, || commands::branch::run(Some("feature"))).unwrap();
+    common::in_cwd(
+        &r.main,
+        BranchCmd {
+            create: Some("feature".into()),
+        },
+    )
+    .unwrap();
 
     // Only sub1 checks out `feature` and makes commits.
     common::git(&r.main.join("sub1"), &["checkout", "-q", "feature"]);
@@ -196,7 +258,14 @@ fn squash_submodule_only_creates_parent_pointer_commit() {
     // but the submodule pointer is dirty.
     common::git(&r.main, &["checkout", "-q", "feature"]);
 
-    common::in_cwd(&r.main, || commands::squash::run("main", None)).unwrap();
+    common::in_cwd(
+        &r.main,
+        SquashCmd {
+            branch: "main".into(),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
     // The sub1 ref change should have been committed into the parent feature branch.
     let status =

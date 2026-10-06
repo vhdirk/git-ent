@@ -1,7 +1,7 @@
 //! Tests for `sgit merge`.
 
 mod common;
-use sgit::commands;
+use sgit::cmd::{branch::BranchCmd, merge::MergeCmd};
 
 #[test]
 /// Test case for merge branch.
@@ -14,7 +14,14 @@ fn merge_branch() {
     common::git(&p.path, ["commit", "-q", "-m", "feat"].as_slice());
     common::git(&p.path, ["checkout", "-q", "main"].as_slice());
 
-    common::in_cwd(&p.path, || commands::merge::run("feature")).unwrap();
+    common::in_cwd(
+        &p.path,
+        MergeCmd {
+            branch: "feature".into(),
+            ..Default::default()
+        },
+    )
+    .unwrap();
     assert!(p.path.join("feature.txt").exists());
 }
 
@@ -23,7 +30,14 @@ fn merge_branch() {
 ///
 fn merge_missing_branch_skips() {
     let p = common::plain_repo();
-    common::in_cwd(&p.path, || commands::merge::run("nonexistent")).unwrap();
+    common::in_cwd(
+        &p.path,
+        MergeCmd {
+            branch: "nonexistent".into(),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 }
 
 #[test]
@@ -31,8 +45,22 @@ fn merge_missing_branch_skips() {
 ///
 fn merge_across_submodules() {
     let r = common::repo_with_submodules();
-    common::in_cwd(&r.main, || commands::branch::run(Some("feature"))).unwrap();
-    common::in_cwd(&r.main, || commands::merge::run("feature")).unwrap();
+    common::in_cwd(
+        &r.main,
+        BranchCmd {
+            create: Some("feature".into()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    common::in_cwd(
+        &r.main,
+        MergeCmd {
+            branch: "feature".into(),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
     let b_main = String::from_utf8_lossy(
         &common::git_out(&r.main, ["rev-parse", "--abbrev-ref", "HEAD"].as_slice()).stdout,
@@ -77,5 +105,14 @@ fn merge_conflict_exits() {
     common::git(&p.path, ["add", "file.txt"].as_slice());
     common::git(&p.path, ["commit", "-q", "-m", "m"].as_slice());
 
-    assert!(common::in_cwd(&p.path, || commands::merge::run("other")).is_err());
+    assert!(
+        common::in_cwd(
+            &p.path,
+            MergeCmd {
+                branch: "other".into(),
+                ..Default::default()
+            }
+        )
+        .is_err()
+    );
 }

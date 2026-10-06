@@ -1,29 +1,43 @@
 //! `sgit rebase <branch>` - recursive rebase using libgit2.
 
+use clap::Args;
 use git2::{BranchType, Rebase, RebaseOptions, Repository};
 
 use crate::RepoTree;
+use crate::cmd::command::{Cmd, Context};
 use crate::error::{Result, SgitError};
 use crate::git::signature;
-use crate::repo_tree::RepoHandle;
+use crate::repo::Repo;
 
-/// Rebase every repo's current branch onto `branch` (depth-first).
-///
-/// - `branch`: local branch name used as the rebase upstream.
-pub fn run(branch: &str) -> Result<()> {
-    let tree = RepoTree::discover(None)?;
-    for r in tree.all() {
-        let label = r.label();
-        if repo_has_branch(&r.repo, branch).is_err() {
-            println!("[{label}] Skipping: branch '{branch}' does not exist");
-            continue;
+/// Rebase all branches recursively onto the given branch.
+#[derive(Default, Debug, Args)]
+pub struct RebaseCmd {
+    /// The branch to rebase onto.
+    pub branch: String,
+}
+
+impl Cmd for RebaseCmd {
+    /// Rebase every repo's current branch onto `branch` (depth-first).
+    ///
+    /// - `branch`: local branch name used as the rebase upstream.
+    fn run(&self, ctx: &Context) -> Result<()> {
+        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+        for r in tree.all() {
+            let label = r.label();
+            if repo_has_branch(&r.repo, &self.branch).is_err() {
+                println!(
+                    "[{label}] Skipping: branch '{}'' does not exist",
+                    &self.branch
+                );
+                continue;
+            }
+            match rebase_one(r, &self.branch) {
+                Ok(()) => println!("[{label}] Rebased onto {}", &self.branch),
+                Err(e) => return Err(e),
+            }
         }
-        match rebase_one(r, branch) {
-            Ok(()) => println!("[{label}] Rebased onto {branch}"),
-            Err(e) => return Err(e),
-        }
+        Ok(())
     }
-    Ok(())
 }
 
 /// Validate that `branch` exists locally in `repo`.
@@ -39,7 +53,7 @@ fn repo_has_branch(repo: &Repository, branch: &str) -> Result<()> {
 ///
 /// - `r`: repo handle (used for repo + conflict context).
 /// - `branch`: local upstream branch name.
-fn rebase_one(r: &RepoHandle, branch: &str) -> Result<()> {
+fn rebase_one(r: &Repo, branch: &str) -> Result<()> {
     let repo = &r.repo;
 
     // Upstream (what we're rebasing onto).

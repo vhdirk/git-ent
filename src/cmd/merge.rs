@@ -5,45 +5,57 @@
 //!
 //! - fast-forward when possible,
 //! - proper merge-commit otherwise,
-//! - conflict → abort with a helpful [`SgitError::Conflict`].
+//! - conflict --> abort with a helpful [`SgitError::Conflict`].
 //!
 //! When a submodule's HEAD advances as a result of the merge, the parent
 //! repo automatically records the moved submodule pointer in a follow-up
 //! commit (matching sgit's commit-time behaviour).
 
+use clap::Args;
 use git2::{
     AnnotatedCommit, BranchType, MergeOptions, Repository, ResetType, build::CheckoutBuilder,
 };
 
 use crate::RepoTree;
+use crate::cmd::command::{Cmd, Context};
 use crate::error::{Result, SgitError};
 use crate::git::{head_commit, signature};
-use crate::repo_tree::{RepoHandle, changed_submodule_paths};
+use crate::repo::Repo;
+use crate::repo_tree::changed_submodule_paths;
 
-/// Merge `branch` into each repo's current branch, depth-first.
-///
-/// - `branch`: local branch name to merge from.
-pub fn run(branch: &str) -> Result<()> {
-    let tree = RepoTree::discover(None)?;
+/// Merge a branch recursively across all submodules.
+#[derive(Default, Debug, Args)]
+pub struct MergeCmd {
+    /// The branch to merge into the current branch.
+    pub branch: String,
+}
 
-    for r in tree.all() {
-        let label = r.label();
-        if !has_branch(&r.repo, branch) {
-            println!("[{label}] Skipping: branch '{branch}' does not exist");
-            continue;
+impl Cmd for MergeCmd {
+    fn run(&self, ctx: &Context) -> Result<()> {
+        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+
+        for r in tree.all() {
+            let label = r.label();
+            if !has_branch(&r.repo, &self.branch) {
+                println!(
+                    "[{label}] Skipping: branch '{}' does not exist",
+                    &self.branch
+                );
+                continue;
+            }
+            match merge_one(r, &self.branch) {
+                Ok(()) => println!("[{label}] Merged '{}'", &self.branch),
+                Err(e) => return Err(e),
+            }
+            if let Err(e) = record_submodule_updates(&r.repo) {
+                eprintln!("[{label}] Error recording submodule refs: {e}");
+            } else if !changed_submodule_paths(&r.repo)?.is_empty() {
+                // record_submodule_updates already committed; print once.
+                println!("[{label}] Committed updated submodule ref(s)");
+            }
         }
-        match merge_one(r, branch) {
-            Ok(()) => println!("[{label}] Merged '{branch}'"),
-            Err(e) => return Err(e),
-        }
-        if let Err(e) = record_submodule_updates(&r.repo) {
-            eprintln!("[{label}] Error recording submodule refs: {e}");
-        } else if !changed_submodule_paths(&r.repo)?.is_empty() {
-            // record_submodule_updates already committed; print once.
-            println!("[{label}] Committed updated submodule ref(s)");
-        }
+        Ok(())
     }
-    Ok(())
 }
 
 /// Check whether `branch` exists as a local branch in `repo`.
@@ -58,7 +70,7 @@ fn has_branch(repo: &Repository, branch: &str) -> bool {
 ///
 /// - `r`: repository handle used for merge and conflict reporting.
 /// - `branch`: local branch merged into current HEAD.
-fn merge_one(r: &RepoHandle, branch: &str) -> Result<()> {
+fn merge_one(r: &Repo, branch: &str) -> Result<()> {
     let repo = &r.repo;
     let br = repo.find_branch(branch, BranchType::Local)?;
     let target_oid = br

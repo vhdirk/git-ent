@@ -7,37 +7,57 @@
 use git2::{BranchType, Oid, Repository, ResetType};
 
 use crate::RepoTree;
-use crate::commands::reset::reset_to;
+use crate::cmd::command::{Cmd, Context};
+use crate::cmd::reset::reset_to;
 use crate::error::{Result, SgitError};
 use crate::git::signature;
-use crate::repo_tree::{RepoHandle, changed_submodule_paths};
+use crate::repo::Repo;
+use crate::repo_tree::changed_submodule_paths;
+use clap::Args;
 
-/// Squash commits since merge-base against `branch` in every repo.
+/// Squash all commits since the common ancestor with <branch>.
 ///
-/// - `branch`: target branch used to compute merge-base.
-/// - `message`: optional explicit squash commit message.
-pub fn run(branch: &str, message: Option<&str>) -> Result<()> {
-    let tree = RepoTree::discover(None)?;
+/// Mirrors GitHub/GitLab's "squash and merge" semantics but depth-first
+/// across submodules: each submodule is squashed first, then the
+/// updated submodule pointer is rolled into the parent's squash commit.
+#[derive(Default, Debug, Args)]
+pub struct SquashCmd {
+    /// The base branch whose merge-base defines the squash range.
+    pub branch: String,
+    /// Commit message for the squash. Defaults to the concatenated
+    /// subjects of the squashed commits.
+    #[arg(short = 'm', long = "message")]
+    pub message: Option<String>,
+}
 
-    for r in tree.all() {
-        let label = r.label();
-        match squash_one(r, branch, message) {
-            Ok(SquashOutcome::Skipped(reason)) => {
-                println!("[{label}] Skipping: {reason}");
+impl Cmd for SquashCmd {
+    /// Squash commits since merge-base against `branch` in every repo.
+    ///
+    /// - `branch`: target branch used to compute merge-base.
+    /// - `message`: optional explicit squash commit message.
+    fn run(&self, ctx: &Context) -> Result<()> {
+        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+
+        for r in tree.all() {
+            let label = r.label();
+            match squash_one(r, &self.branch, self.message.as_deref()) {
+                Ok(SquashOutcome::Skipped(reason)) => {
+                    println!("[{label}] Skipping: {reason}");
+                }
+                Ok(SquashOutcome::Nothing) => {
+                    println!("[{label}] Nothing to squash");
+                }
+                Ok(SquashOutcome::Squashed(n)) => {
+                    println!("[{label}] Squashed {n} commit(s)");
+                }
+                Ok(SquashOutcome::PointerOnly) => {
+                    println!("[{label}] Committed updated submodule ref(s)");
+                }
+                Err(e) => return Err(e),
             }
-            Ok(SquashOutcome::Nothing) => {
-                println!("[{label}] Nothing to squash");
-            }
-            Ok(SquashOutcome::Squashed(n)) => {
-                println!("[{label}] Squashed {n} commit(s)");
-            }
-            Ok(SquashOutcome::PointerOnly) => {
-                println!("[{label}] Committed updated submodule ref(s)");
-            }
-            Err(e) => return Err(e),
         }
+        Ok(())
     }
-    Ok(())
 }
 
 enum SquashOutcome {
@@ -52,10 +72,10 @@ enum SquashOutcome {
 /// - `r`: repository handle to squash.
 /// - `branch`: target branch used to compute merge-base.
 /// - `message`: optional explicit squash commit message.
-fn squash_one(r: &RepoHandle, branch: &str, message: Option<&str>) -> Result<SquashOutcome> {
+fn squash_one(r: &Repo, branch: &str, message: Option<&str>) -> Result<SquashOutcome> {
     let repo = &r.repo;
 
-    // Detached → skip.
+    // Detached --> skip.
     if repo.head_detached().unwrap_or(false) {
         return Ok(SquashOutcome::Skipped("detached HEAD".into()));
     }
@@ -102,7 +122,7 @@ fn squash_one(r: &RepoHandle, branch: &str, message: Option<&str>) -> Result<Squ
 
     if commits.is_empty() {
         if has_sub_changes_pre {
-            // No own commits to squash, but submodule pointer moved → create
+            // No own commits to squash, but submodule pointer moved --> create
             // a pointer-only commit on the current branch.
             record_pointer_commit(repo)?;
             return Ok(SquashOutcome::PointerOnly);
