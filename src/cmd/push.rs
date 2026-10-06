@@ -1,7 +1,7 @@
 //! `sgit push`- push across the whole tree via libgit2.
 
 use crate::RepoTree;
-use crate::cmd::command::{Command, Context};
+use crate::cmd::command::{Cmd, Context};
 use crate::error::Result;
 use crate::git::first_remote;
 use crate::repo::Repo;
@@ -18,7 +18,7 @@ pub struct PushCmd {
     pub option: Vec<String>,
 }
 
-impl Command for PushCmd {
+impl Cmd for PushCmd {
     /// Iterate the repo tree and push each eligible repo.
     ///
     /// - `push_options`: push options forwarded to each remote push call.
@@ -83,6 +83,8 @@ fn push_one(r: &Repo, push_options: &[&str]) -> Result<Option<PushResult>> {
     let sideband_capture = Arc::clone(&sideband_lines);
 
     let mut callbacks = RemoteCallbacks::new();
+
+    // TODO: first collect all sideband lines, THEN split into lines
     callbacks.sideband_progress(move |data| {
         if let Ok(text) = std::str::from_utf8(data) {
             if let Ok(mut lines) = sideband_capture.lock() {
@@ -96,6 +98,7 @@ fn push_one(r: &Repo, push_options: &[&str]) -> Result<Option<PushResult>> {
         }
         true
     });
+
     callbacks.credentials(|url, username_from_url, allowed| {
         // SSH: auth via agent or standard key files (~/.ssh/id_*)
         // libgit2 requires a callback for SSH; this callback follows standard SSH behavior.
@@ -165,7 +168,6 @@ fn extract_push_notices(lines: &[String]) -> Vec<String> {
             lower.contains("http://")
                 || lower.contains("https://")
                 || lower.contains("merge request")
-                || lower.contains("merge_requests")
         })
         .cloned()
         .collect()

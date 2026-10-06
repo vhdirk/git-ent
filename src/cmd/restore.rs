@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use git2::{ObjectType, Repository, build::CheckoutBuilder};
 
 use crate::RepoTree;
-use crate::cmd::command::{Command, Context};
+use crate::cmd::command::{Cmd, Context};
 use crate::error::Result;
 use crate::git::head_commit;
 use crate::repo::Repo;
@@ -21,7 +21,7 @@ pub struct RestoreCmd {
     pub staged: bool,
 }
 
-impl Command for RestoreCmd {
+impl Cmd for RestoreCmd {
     /// Restore working-tree changes or unstage index changes recursively.
     ///
     /// - `filenames`: optional explicit files; empty means operate on all changed files.

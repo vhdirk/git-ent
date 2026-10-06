@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use colored::Colorize;
 
 use crate::RepoTree;
-use crate::cmd::command::{Command, Context};
+use crate::cmd::command::{Cmd, Context};
 use crate::error::Result;
 use crate::repo_tree::{ChangeKind, prefix_path};
 use clap::Args;
@@ -14,7 +14,7 @@ use clap::Args;
 #[derive(Default, Debug, Args)]
 pub struct StatusCmd;
 
-impl Command for StatusCmd {
+impl Cmd for StatusCmd {
     fn run(&self, ctx: &Context) -> Result<()> {
         let tree = RepoTree::discover(ctx.workdir.as_deref())?;
 

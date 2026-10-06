@@ -7,7 +7,7 @@
 use git2::{BranchType, Oid, Repository, ResetType};
 
 use crate::RepoTree;
-use crate::cmd::command::{Command, Context};
+use crate::cmd::command::{Cmd, Context};
 use crate::cmd::reset::reset_to;
 use crate::error::{Result, SgitError};
 use crate::git::signature;
@@ -30,7 +30,7 @@ pub struct SquashCmd {
     pub message: Option<String>,
 }
 
-impl Command for SquashCmd {
+impl Cmd for SquashCmd {
     /// Squash commits since merge-base against `branch` in every repo.
     ///
     /// - `branch`: target branch used to compute merge-base.

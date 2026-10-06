@@ -63,6 +63,9 @@ pub(crate) fn prefix_path(prefix: &Path, path: &str) -> String {
 impl RepoTree {
     /// Discover the repo containing `start` (defaulting to cwd) and
     /// recursively collect every nested submodule.
+    ///
+    /// TODO: traverse directories upwards to find the root of the repo.
+    /// It's the one where .git is an actual directory
     pub fn discover(start: Option<&Path>) -> Result<Self> {
         let cwd = match start {
             Some(p) => p.to_path_buf(),

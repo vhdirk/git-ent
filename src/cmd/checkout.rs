@@ -1,7 +1,7 @@
 //! `sgit checkout` - checkout branches recursively across all repos.
 
 use crate::RepoTree;
-use crate::cmd::command::{Command, Context};
+use crate::cmd::command::{Cmd, Context};
 use crate::error::{Result, SgitError};
 use clap::Args;
 use git2::{BranchType, ErrorCode, Repository, build::CheckoutBuilder};
@@ -23,7 +23,7 @@ pub struct CheckoutCmd {
     pub paths: Vec<PathBuf>,
 }
 
-impl Command for CheckoutCmd {
+impl Cmd for CheckoutCmd {
     /// Run recursive checkout behavior.
     ///
     /// - `branch`: branch to switch to, or source branch for path checkout.

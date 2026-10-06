@@ -6,7 +6,7 @@ use crate::cmd::add::AddCmd;
 use crate::cmd::branch::BranchCmd;
 use crate::cmd::checkout::CheckoutCmd;
 use crate::cmd::clone::CloneCmd;
-use crate::cmd::command::{Command, Context};
+use crate::cmd::command::{Cmd, Context};
 use crate::cmd::commit::CommitCmd;
 use crate::cmd::merge::MergeCmd;
 use crate::cmd::push::PushCmd;

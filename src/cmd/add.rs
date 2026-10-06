@@ -4,7 +4,7 @@ use clap::Args;
 use std::path::PathBuf;
 
 use crate::RepoTree;
-use crate::cmd::command::{Command, Context};
+use crate::cmd::command::{Cmd, Context};
 use crate::error::Result;
 
 /// Add files to the git index (paths can be from any submodule).
@@ -23,7 +23,7 @@ pub struct AddCmd {
     pub update: bool,
 }
 
-impl Command for AddCmd {
+impl Cmd for AddCmd {
     /// Stage file changes across the repo tree.
     ///
     /// - `filenames`: paths to stage, routed to the deepest owning repo.

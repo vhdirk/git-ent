@@ -4,7 +4,7 @@ use clap::Args;
 use git2::{BranchType, Rebase, RebaseOptions, Repository};
 
 use crate::RepoTree;
-use crate::cmd::command::{Command, Context};
+use crate::cmd::command::{Cmd, Context};
 use crate::error::{Result, SgitError};
 use crate::git::signature;
 use crate::repo::Repo;
@@ -16,7 +16,7 @@ pub struct RebaseCmd {
     pub branch: String,
 }
 
-impl Command for RebaseCmd {
+impl Cmd for RebaseCmd {
     /// Rebase every repo's current branch onto `branch` (depth-first).
     ///
     /// - `branch`: local branch name used as the rebase upstream.

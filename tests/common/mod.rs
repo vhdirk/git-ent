@@ -5,7 +5,7 @@
 
 use git2::DiffLineType::Context;
 use sgit::SgitError;
-use sgit::cmd::command::{Command as SgitCommand, Context as SgitContext};
+use sgit::cmd::command::{Cmd as SgitCommand, Context as SgitContext};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Mutex, OnceLock};
