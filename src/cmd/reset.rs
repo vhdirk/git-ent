@@ -3,7 +3,7 @@
 use git2::{Repository, ResetType};
 
 use crate::RepoTree;
-use crate::cmd::command::{Command, Context};
+use crate::cmd::command::{Cmd, Context};
 use crate::error::Result;
 use crate::git::resolve_revision;
 
@@ -19,7 +19,7 @@ pub struct ResetCmd {
     pub hard: bool,
 }
 
-impl Command for ResetCmd {
+impl Cmd for ResetCmd {
     fn run(&self, ctx: &Context) -> Result<()> {
         let target = self.target_ref.as_deref().unwrap_or("HEAD");
         let tree = RepoTree::discover(ctx.workdir.as_deref())?;

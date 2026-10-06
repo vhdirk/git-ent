@@ -1,7 +1,7 @@
 //! `sgit switch` - recursive equivalent of git switch.
 
 use crate::RepoTree;
-use crate::cmd::command::{Command, Context};
+use crate::cmd::command::{Cmd, Context};
 use crate::error::{Result, SgitError};
 use clap::Args;
 use git2::{BranchType, ErrorCode, Repository, build::CheckoutBuilder};
@@ -22,7 +22,7 @@ pub struct SwitchCmd {
     pub target: Option<String>,
 }
 
-impl Command for SwitchCmd {
+impl Cmd for SwitchCmd {
     fn run(&self, ctx: &Context) -> Result<()> {
         let tree = RepoTree::discover(ctx.workdir.as_deref())?;
 

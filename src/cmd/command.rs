@@ -8,6 +8,6 @@ pub struct Context {
 
 impl Context {}
 
-pub trait Command {
+pub trait Cmd {
     fn run(&self, ctx: &Context) -> Result<()>;
 }

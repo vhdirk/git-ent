@@ -1,6 +1,6 @@
 //! `sgit update` - init + update submodules recursively, via libgit2.
 
-use crate::cmd::command::{Command, Context};
+use crate::cmd::command::{Cmd, Context};
 use clap::Args;
 use git2::{FetchOptions, Repository, SubmoduleUpdateOptions};
 
@@ -12,7 +12,7 @@ use crate::error::Result;
 #[derive(Default, Debug, Args)]
 pub struct UpdateCmd;
 
-impl Command for UpdateCmd {
+impl Cmd for UpdateCmd {
     /// Initialize and update all submodules recursively for the root repo.
     fn run(&self, ctx: &Context) -> Result<()> {
         let tree = RepoTree::discover(ctx.workdir.as_deref())?;

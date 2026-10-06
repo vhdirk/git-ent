@@ -17,7 +17,7 @@ use git2::{
 };
 
 use crate::RepoTree;
-use crate::cmd::command::{Command, Context};
+use crate::cmd::command::{Cmd, Context};
 use crate::error::{Result, SgitError};
 use crate::git::{head_commit, signature};
 use crate::repo::Repo;
@@ -30,7 +30,7 @@ pub struct MergeCmd {
     pub branch: String,
 }
 
-impl Command for MergeCmd {
+impl Cmd for MergeCmd {
     fn run(&self, ctx: &Context) -> Result<()> {
         let tree = RepoTree::discover(ctx.workdir.as_deref())?;
 

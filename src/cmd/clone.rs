@@ -1,6 +1,6 @@
 //! `sgit clone` - recursive clone via libgit2.
 
-use crate::cmd::command::{Command, Context};
+use crate::cmd::command::{Cmd, Context};
 use clap::Args;
 use std::path::PathBuf;
 
@@ -17,9 +17,12 @@ pub struct CloneCmd {
     pub dest: Option<PathBuf>,
 }
 
-impl Command for CloneCmd {
+impl Cmd for CloneCmd {
     fn run(&self, _ctx: &Context) -> Result<()> {
-        let dest = self.dest.clone().unwrap_or_else(|| infer_clone_destination(&self.url));
+        let dest = self
+            .dest
+            .clone()
+            .unwrap_or_else(|| infer_clone_destination(&self.url));
 
         println!(
             "Cloning {} into {} (recursive)...",

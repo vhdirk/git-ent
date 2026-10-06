@@ -4,7 +4,7 @@ use clap::Args;
 use git2::BranchType;
 
 use crate::RepoTree;
-use crate::cmd::command::{Command, Context};
+use crate::cmd::command::{Cmd, Context};
 use crate::error::Result;
 
 /// List or create branches across the whole tree.
@@ -15,7 +15,7 @@ pub struct BranchCmd {
     pub create: Option<String>,
 }
 
-impl Command for BranchCmd {
+impl Cmd for BranchCmd {
     /// List local branches or create one branch across all repos.
     ///
     /// - `create`: optional branch name; `None` lists branches, `Some(name)` creates it.

@@ -198,3 +198,72 @@ fn no_verify_bypasses_hooks() {
     )
     .unwrap();
 }
+
+#[test]
+fn pre_commit_hook_rejection_prevents_commit() {
+    let p = common::plain_repo();
+    let hook_dir = p.path.join(".git/hooks");
+    std::fs::create_dir_all(&hook_dir).unwrap();
+    let hook = hook_dir.join("pre-commit");
+    std::fs::write(&hook, "#!/bin/sh\nexit 1\n").unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    std::fs::write(p.path.join("file.txt"), "changed\n").unwrap();
+    common::git(&p.path, &["add", "file.txt"]);
+    let head_before = common::git_out(&p.path, &["rev-parse", "HEAD"]).stdout;
+
+    let result = common::in_cwd(
+        &p.path,
+        CommitCmd {
+            message: Some("rejected".into()),
+            ..Default::default()
+        },
+    );
+
+    let head_after = common::git_out(&p.path, &["rev-parse", "HEAD"]).stdout;
+    assert!(result.is_err());
+    assert_eq!(head_after, head_before);
+}
+
+#[test]
+fn commit_msg_hook_can_edit_message_from_configured_hooks_path() {
+    let p = common::plain_repo();
+    let hook_dir = p.tmp.path().join("custom-hooks");
+    std::fs::create_dir_all(&hook_dir).unwrap();
+    common::git(
+        &p.path,
+        &["config", "core.hooksPath", hook_dir.to_str().unwrap()],
+    );
+    let hook = hook_dir.join("commit-msg");
+    std::fs::write(
+        &hook,
+        "#!/bin/sh\nprintf '%s\\n' 'edited by hook' > \"$1\"\n",
+    )
+    .unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755)).unwrap();
+    }
+
+    std::fs::write(p.path.join("file.txt"), "changed\n").unwrap();
+    common::git(&p.path, &["add", "file.txt"]);
+    common::in_cwd(
+        &p.path,
+        CommitCmd {
+            message: Some("original message".into()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+
+    let subject = common::git_out(&p.path, &["log", "-1", "--pretty=%s"]);
+    assert_eq!(
+        String::from_utf8_lossy(&subject.stdout).trim(),
+        "edited by hook"
+    );
+}
