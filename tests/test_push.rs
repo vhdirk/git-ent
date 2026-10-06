@@ -1,8 +1,6 @@
-//! Tests for `sgit push`.
-
 mod common;
 
-use sgit::cmd::push::PushCmd;
+use git_nest::cli::push::PushCmd;
 use std::path::Path;
 
 #[test]

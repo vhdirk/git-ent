@@ -233,6 +233,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "git-nest"
+version = "0.0.1"
+dependencies = [
+ "anyhow",
+ "clap",
+ "colored",
+ "edit",
+ "git2",
+ "serde",
+ "shell-words",
+ "tempfile",
+ "thiserror",
+ "toml",
+ "xdg",
+]
+
+[[package]]
 name = "git2"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -640,23 +657,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6662b5879511e06e8999a8a235d848113e942c9124f211511b16466ee2995f26"
 dependencies = [
  "serde_core",
-]
-
-[[package]]
-name = "sgit"
-version = "0.2.0"
-dependencies = [
- "anyhow",
- "clap",
- "colored",
- "edit",
- "git2",
- "serde",
- "shell-words",
- "tempfile",
- "thiserror",
- "toml",
- "xdg",
 ]
 
 [[package]]

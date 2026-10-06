@@ -1,7 +1,5 @@
-//! Tests for `sgit rebase`.
-
 mod common;
-use sgit::cmd::{branch::BranchCmd, rebase::RebaseCmd};
+use git_nest::cli::{branch::BranchCmd, rebase::RebaseCmd};
 
 #[test]
 /// Test case for rebase missing branch skips.

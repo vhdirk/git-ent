@@ -1,14 +1,14 @@
-# `sgit branch`
+# `git-nest branch`
 
 List or create branches across the top-level project and every
 submodule.
 
 ```bash
 # List branches in all repos
-sgit branch
+git-nest branch
 
 # Create a branch everywhere
-sgit branch -c <branch-name>
+git-nest branch -c <branch-name>
 ```
 
 | Flag             | Description                                 |

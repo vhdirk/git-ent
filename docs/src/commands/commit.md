@@ -1,15 +1,15 @@
-# `sgit commit`
+# `git-nest commit`
 
 Commit across all (sub)modules that have staged changes.
 
 ```bash
-sgit commit -m "message"
+git-nest commit -m "message"
 
 # Skip pre-commit and commit-msg hooks
-sgit commit -m "message" --no-verify
+git-nest commit -m "message" --no-verify
 
 # No -m --> opens $EDITOR with a git-style template
-sgit commit
+git-nest commit
 ```
 
 | Flag              | Description                           |

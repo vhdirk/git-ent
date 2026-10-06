@@ -1,9 +1,9 @@
-# `sgit update`
+# `git-nest update`
 
 Initialize and update all submodules recursively.
 
 ```bash
-sgit update
+git-nest update
 ```
 
 Equivalent to `git submodule update --init --recursive`. Useful after

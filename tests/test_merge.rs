@@ -1,7 +1,5 @@
-//! Tests for `sgit merge`.
-
 mod common;
-use sgit::cmd::{branch::BranchCmd, merge::MergeCmd};
+use git_nest::cli::{branch::BranchCmd, merge::MergeCmd};
 
 #[test]
 /// Test case for merge branch.

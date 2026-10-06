@@ -1,11 +1,9 @@
-//! `sgit rebase <branch>` - recursive rebase using libgit2.
-
 use clap::Args;
 use git2::{BranchType, Rebase, RebaseOptions, Repository};
 
 use crate::RepoTree;
-use crate::cmd::command::{Cmd, Context};
-use crate::error::{Result, SgitError};
+use crate::cli::command::{Cmd, Context};
+use crate::error::{GitNestError, Result};
 use crate::git::signature;
 use crate::repo::Repo;
 
@@ -61,14 +59,14 @@ fn rebase_one(r: &Repo, branch: &str) -> Result<()> {
         .find_branch(branch, BranchType::Local)?
         .get()
         .target()
-        .ok_or_else(|| SgitError::Other(format!("branch '{branch}' has no target")))?;
+        .ok_or_else(|| GitNestError::Other(format!("branch '{branch}' has no target")))?;
     let upstream = repo.find_annotated_commit(upstream_oid)?;
 
     // "branch" (what we're rebasing) = current HEAD.
     let head_oid = repo
         .head()?
         .target()
-        .ok_or_else(|| SgitError::Other("HEAD has no target".into()))?;
+        .ok_or_else(|| GitNestError::Other("HEAD has no target".into()))?;
     let head_annotated = repo.find_annotated_commit(head_oid)?;
 
     let mut opts = RebaseOptions::new();
@@ -84,7 +82,7 @@ fn rebase_one(r: &Repo, branch: &str) -> Result<()> {
         let _op = step?;
         if repo.index()?.has_conflicts() {
             let _ = rebase.abort();
-            return Err(SgitError::Conflict {
+            return Err(GitNestError::Conflict {
                 repo: r.display_label(),
                 workdir: r.workdir.clone(),
                 hint: format!("git rebase {branch}"),

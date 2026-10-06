@@ -1,7 +1,5 @@
-//! Tests for `sgit status`.
-
 mod common;
-use sgit::cmd::status::StatusCmd;
+use git_nest::cli::status::StatusCmd;
 
 #[test]
 /// Test case for clean repo prints nothing.

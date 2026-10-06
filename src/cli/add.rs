@@ -1,23 +1,21 @@
-//! `sgit add` - route paths (from anywhere in the tree) to the right repo.
-
 use clap::Args;
 use std::path::PathBuf;
 
-use crate::RepoTree;
-use crate::cmd::command::{Cmd, Context};
+use crate::cli::command::{Cmd, Context};
 use crate::error::Result;
+use crate::repo_tree::RepoTree;
 
 /// Add files to the git index (paths can be from any submodule).
 #[derive(Default, Debug, Args)]
 pub struct AddCmd {
     /// Files to add.
-    ///
     #[arg(required_unless_present_any = ["all","update"])]
     pub paths: Vec<PathBuf>,
 
     /// Stage all changes (modified, deleted, untracked) everywhere.
     #[arg(short = 'A', long = "all")]
     pub all: bool,
+
     /// Stage tracked-file changes only (skip untracked) everywhere.
     #[arg(short = 'u', long = "update", conflicts_with = "all")]
     pub update: bool,

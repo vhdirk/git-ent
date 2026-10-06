@@ -1,7 +1,5 @@
-//! `sgit push`- push across the whole tree via libgit2.
-
 use crate::RepoTree;
-use crate::cmd::command::{Cmd, Context};
+use crate::cli::command::{Cmd, Context};
 use crate::error::Result;
 use crate::git::first_remote;
 use crate::repo::Repo;
@@ -74,6 +72,7 @@ fn push_one(r: &Repo, push_options: &[&str]) -> Result<Option<PushResult>> {
     // How many commits are ahead of upstream?
     let ahead = commits_ahead(repo, &branch_name, &remote_name).unwrap_or(0);
     if ahead == 0 {
+        println!("[{}] Everything up-to-date", r.label());
         return Ok(None);
     }
 

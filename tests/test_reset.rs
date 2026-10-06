@@ -1,7 +1,5 @@
-//! Tests for `sgit reset`.
-
 mod common;
-use sgit::cmd::reset::ResetCmd;
+use git_nest::cli::reset::ResetCmd;
 
 #[test]
 /// Test case for reset unstages staged changes.

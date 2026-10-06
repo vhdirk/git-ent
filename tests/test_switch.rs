@@ -1,7 +1,5 @@
-//! Tests for `sgit switch`.
-
 mod common;
-use sgit::cmd::{branch::BranchCmd, switch::SwitchCmd};
+use git_nest::cli::{branch::BranchCmd, switch::SwitchCmd};
 
 #[test]
 /// Test case for switch existing branch across submodules.

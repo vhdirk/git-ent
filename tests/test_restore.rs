@@ -1,7 +1,5 @@
-//! Tests for `sgit restore`.
-
 mod common;
-use sgit::cmd::restore::RestoreCmd;
+use git_nest::cli::restore::RestoreCmd;
 
 #[test]
 /// Test case for restore single file.
