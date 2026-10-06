@@ -7,6 +7,20 @@ use git2::build::CheckoutBuilder;
 use git2::{BranchType, ErrorCode, IndexAddOption, Repository};
 use std::path::{Path, PathBuf};
 
+#[derive(Debug, Clone, Default)]
+pub struct RepoStatus {
+    pub staged: Vec<StatusEntry>,
+    pub unstaged: Vec<StatusEntry>,
+    pub untracked: Vec<StatusEntry>,
+}
+
+impl RepoStatus {
+    /// Check if the repo has no changes.
+    pub fn is_empty(&self) -> bool {
+        self.staged.is_empty() && self.unstaged.is_empty() && self.untracked.is_empty()
+    }
+}
+
 /// A handle to a git repository within the tree.
 ///
 /// Owns its [`Repository`] and remembers where it sits in the tree.
@@ -16,27 +30,28 @@ pub struct Repo {
     /// Absolute path to the working directory.
     pub workdir: PathBuf,
     /// Path relative to the top-level repo (`"."` for the root).
-    pub prefix: PathBuf,
+    pub prefix: Option<PathBuf>,
 }
 
 impl Repo {
     /// Human-readable label (relative path, or `"."` for root).
     pub fn label(&self) -> String {
-        let p = self.prefix.to_string_lossy();
-        if p.is_empty() {
+        let p = self.prefix.clone().unwrap_or(PathBuf::from(""));
+        let ps = p.to_string_lossy();
+        if ps.is_empty() {
             ".".into()
         } else {
-            p.into_owned()
+            ps.into_owned()
         }
     }
 
     /// Label suitable for `git status`-style output
     /// (`"(top-level)"` for the root).
     pub fn display_label(&self) -> String {
-        if self.prefix.as_os_str().is_empty() || self.prefix == Path::new(".") {
+        if self.prefix.is_none() {
             "(top-level)".into()
         } else {
-            self.prefix.to_string_lossy().into_owned()
+            self.prefix.as_ref().unwrap().to_string_lossy().into_owned()
         }
     }
 
@@ -47,6 +62,24 @@ impl Repo {
         }
         let head = self.repo.head().ok()?;
         head.shorthand().ok().map(str::to_string)
+    }
+
+    /// Stage one path - add if it exists, remove if it was deleted.
+    pub fn stage(&self, rel: &Path) -> Result<()> {
+        let mut index = self.repo.index()?;
+        let full = self
+            .repo
+            .workdir()
+            .map(|w| w.join(rel))
+            .unwrap_or_else(|| rel.to_path_buf());
+        println!("Staging path: {} {} ", full.display(), rel.display());
+        if full.exists() {
+            index.add_all([rel], IndexAddOption::DEFAULT, None)?;
+        } else {
+            index.remove_path(rel)?;
+        }
+        index.write()?;
+        Ok(())
     }
 
     /// Create a commit on the current branch from the repo's index.
@@ -69,7 +102,7 @@ impl Repo {
     }
 
     /// Return all staged, unstaged and untracked entries.
-    pub fn list_status(&self) -> Result<(Vec<StatusEntry>, Vec<StatusEntry>, Vec<StatusEntry>)> {
+    pub fn status(&self) -> Result<RepoStatus> {
         let mut opts = StatusOptions::new();
         opts.include_untracked(true)
             .renames_head_to_index(true)
@@ -140,13 +173,21 @@ impl Repo {
                 });
             }
         }
-        Ok((staged, unstaged, untracked))
+        Ok(RepoStatus {
+            staged,
+            unstaged,
+            untracked,
+        })
     }
 
     /// Convenience: `true` if `RepoTree` has any staged, unstaged or untracked changes.
     pub fn has_changes(&self) -> Result<bool> {
-        let (s, u, ut) = self.list_status()?;
-        Ok(!s.is_empty() || !u.is_empty() || !ut.is_empty())
+        let status = self.status()?;
+        Ok(
+            !status.staged.is_empty()
+                || !status.unstaged.is_empty()
+                || !status.untracked.is_empty(),
+        )
     }
 
     /// `git add -A`: stage untracked + modified, remove deleted tracked files.

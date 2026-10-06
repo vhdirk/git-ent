@@ -1,46 +1,51 @@
 //! `sgit push`- push across the whole tree via libgit2.
 
-use git2::{BranchType, Cred, CredentialType, PushOptions, RemoteCallbacks, Repository};
-
 use crate::RepoTree;
+use crate::cmd::command::{Command, Context};
 use crate::error::Result;
 use crate::git::first_remote;
 use crate::repo::Repo;
+use clap::Args;
+use git2::{BranchType, Cred, CredentialType, PushOptions, RemoteCallbacks, Repository};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+
+/// Push to remote across all repos that have commits to push.
+#[derive(Default, Debug, Args)]
+pub struct PushCmd {
+    /// Push options (`-o`). Can be specified multiple times.
+    #[arg(short = 'o', long = "push-option")]
+    pub option: Vec<String>,
+}
+
+impl Command for PushCmd {
+    /// Iterate the repo tree and push each eligible repo.
+    ///
+    /// - `push_options`: push options forwarded to each remote push call.
+    fn run(&self, ctx: &Context) -> Result<()> {
+        let opts: Vec<&str> = self.option.iter().map(String::as_str).collect();
+
+        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+        for r in tree.all() {
+            let label = r.label();
+            match push_one(r, &opts) {
+                Ok(Some(res)) => {
+                    println!("[{label}] Pushed {} commit(s)", res.ahead);
+                    for notice in res.notices {
+                        println!("[{label}] {notice}");
+                    }
+                }
+                Ok(None) => {}
+                Err(e) => eprintln!("[{label}] Error pushing: {e}"),
+            }
+        }
+        Ok(())
+    }
+}
 
 struct PushResult {
     ahead: usize,
     notices: Vec<String>,
-}
-
-/// Push recursively with user-provided push options.
-///
-/// - `push_option`: repeatable options passed through to remote push.
-pub fn run(push_option: &[String]) -> Result<()> {
-    let opts: Vec<&str> = push_option.iter().map(String::as_str).collect();
-    push_tree(&opts)
-}
-
-/// Iterate the repo tree and push each eligible repo.
-///
-/// - `push_options`: push options forwarded to each remote push call.
-fn push_tree(push_options: &[&str]) -> Result<()> {
-    let tree = RepoTree::discover(None)?;
-    for r in tree.all() {
-        let label = r.label();
-        match push_one(r, push_options) {
-            Ok(Some(res)) => {
-                println!("[{label}] Pushed {} commit(s)", res.ahead);
-                for notice in res.notices {
-                    println!("[{label}] {notice}");
-                }
-            }
-            Ok(None) => {}
-            Err(e) => eprintln!("[{label}] Error pushing: {e}"),
-        }
-    }
-    Ok(())
 }
 
 /// Push the current branch. Returns `Some(n)` if `n > 0` commits were

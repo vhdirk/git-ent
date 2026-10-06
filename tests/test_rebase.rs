@@ -1,14 +1,20 @@
 //! Tests for `sgit rebase`.
 
 mod common;
-use sgit::commands;
+use sgit::cmd::{branch::BranchCmd, rebase::RebaseCmd};
 
 #[test]
 /// Test case for rebase missing branch skips.
 ///
 fn rebase_missing_branch_skips() {
     let p = common::plain_repo();
-    common::in_cwd(&p.path, || commands::rebase::run("nonexistent")).unwrap();
+    common::in_cwd(
+        &p.path,
+        RebaseCmd {
+            branch: "nonexistent".into(),
+        },
+    )
+    .unwrap();
 }
 
 #[test]
@@ -18,7 +24,13 @@ fn rebase_onto_branch() {
     let p = common::plain_repo();
     common::git(&p.path, &["branch", "target"]);
 
-    common::in_cwd(&p.path, || commands::rebase::run("target")).unwrap();
+    common::in_cwd(
+        &p.path,
+        RebaseCmd {
+            branch: "target".into(),
+        },
+    )
+    .unwrap();
 }
 
 #[test]
@@ -26,8 +38,20 @@ fn rebase_onto_branch() {
 ///
 fn rebase_across_submodules() {
     let r = common::repo_with_submodules();
-    common::in_cwd(&r.main, || commands::branch::run(Some("target"))).unwrap();
-    common::in_cwd(&r.main, || commands::rebase::run("target")).unwrap();
+    common::in_cwd(
+        &r.main,
+        BranchCmd {
+            create: Some("target".into()),
+        },
+    )
+    .unwrap();
+    common::in_cwd(
+        &r.main,
+        RebaseCmd {
+            branch: "target".into(),
+        },
+    )
+    .unwrap();
 
     let b_main = String::from_utf8_lossy(
         &common::git_out(&r.main, ["rev-parse", "--abbrev-ref", "HEAD"].as_slice()).stdout,

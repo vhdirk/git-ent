@@ -1,7 +1,7 @@
 //! Tests for `sgit commit`.
 
 mod common;
-use sgit::commands;
+use sgit::cmd::{add::AddCmd, commit::CommitCmd};
 
 #[test]
 /// Test case for commit staged changes.
@@ -10,9 +10,13 @@ fn commit_staged_changes() {
     let p = common::plain_repo();
     std::fs::write(p.path.join("file.txt"), "changed\n").unwrap();
     common::git(&p.path, &["add", "file.txt"]);
-    common::in_cwd(&p.path, || {
-        commands::commit::run(Some("test commit"), false)
-    })
+    common::in_cwd(
+        &p.path,
+        CommitCmd {
+            message: Some("test commit".into()),
+            ..Default::default()
+        },
+    )
     .unwrap();
 
     let out = common::git_out(&p.path, &["log", "-1", "--pretty=%s"]);
@@ -24,7 +28,14 @@ fn commit_staged_changes() {
 ///
 fn nothing_to_commit() {
     let p = common::plain_repo();
-    common::in_cwd(&p.path, || commands::commit::run(Some("empty"), false)).unwrap();
+    common::in_cwd(
+        &p.path,
+        CommitCmd {
+            message: Some("empty".into()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 }
 
 #[test]
@@ -34,7 +45,14 @@ fn long_message_flag() {
     let p = common::plain_repo();
     std::fs::write(p.path.join("file.txt"), "x\n").unwrap();
     common::git(&p.path, &["add", "file.txt"]);
-    common::in_cwd(&p.path, || commands::commit::run(Some("long flag"), false)).unwrap();
+    common::in_cwd(
+        &p.path,
+        CommitCmd {
+            message: Some("long flag".into()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 }
 
 #[test]
@@ -44,14 +62,22 @@ fn commits_in_submodule_and_parent() {
     let r = common::repo_with_submodules();
     std::fs::write(r.main.join("sub1/file1.txt"), "changed\n").unwrap();
     std::fs::write(r.main.join("main.txt"), "changed\n").unwrap();
-    common::in_cwd(&r.main, || {
-        commands::add::run(&["sub1/file1.txt".into(), "main.txt".into()], false, false)
-    })
+    common::in_cwd(
+        &r.main,
+        AddCmd {
+            paths: vec!["sub1/file1.txt".into(), "main.txt".into()],
+            ..Default::default()
+        },
+    )
     .unwrap();
 
-    common::in_cwd(&r.main, || {
-        commands::commit::run(Some("cross-module"), false)
-    })
+    common::in_cwd(
+        &r.main,
+        CommitCmd {
+            message: Some("cross-module".into()),
+            ..Default::default()
+        },
+    )
     .unwrap();
 
     let sub1_msg = String::from_utf8_lossy(
@@ -73,11 +99,22 @@ fn commits_in_submodule_and_parent() {
 fn auto_stages_submodule_pointer() {
     let r = common::repo_with_submodules();
     std::fs::write(r.main.join("sub1/file1.txt"), "changed\n").unwrap();
-    common::in_cwd(&r.main, || {
-        commands::add::run(&["sub1/file1.txt".into()], false, false)
-    })
+    common::in_cwd(
+        &r.main,
+        AddCmd {
+            paths: vec!["sub1/file1.txt".into()],
+            ..Default::default()
+        },
+    )
     .unwrap();
-    common::in_cwd(&r.main, || commands::commit::run(Some("sub only"), false)).unwrap();
+    common::in_cwd(
+        &r.main,
+        CommitCmd {
+            message: Some("sub only".into()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
     // After commit, no dirty submodule pointer remains.
     let out = common::git_out(&r.main, &["status", "--porcelain"]);
@@ -91,11 +128,22 @@ fn auto_stages_submodule_pointer() {
 fn only_commits_repos_with_staged_changes() {
     let r = common::repo_with_submodules();
     std::fs::write(r.main.join("sub1/file1.txt"), "changed\n").unwrap();
-    common::in_cwd(&r.main, || {
-        commands::add::run(&["sub1/file1.txt".into()], false, false)
-    })
+    common::in_cwd(
+        &r.main,
+        AddCmd {
+            paths: vec!["sub1/file1.txt".into()],
+            ..Default::default()
+        },
+    )
     .unwrap();
-    common::in_cwd(&r.main, || commands::commit::run(Some("partial"), false)).unwrap();
+    common::in_cwd(
+        &r.main,
+        CommitCmd {
+            message: Some("partial".into()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
     // Just verify it succeeded (the old test checked stdout for sub2 absence)
 }
 
@@ -105,13 +153,21 @@ fn only_commits_repos_with_staged_changes() {
 fn commit_nested_submodules() {
     let r = common::nested_submodules();
     std::fs::write(r.main.join("mid/leaf/leaf.txt"), "changed\n").unwrap();
-    common::in_cwd(&r.main, || {
-        commands::add::run(&["mid/leaf/leaf.txt".into()], false, false)
-    })
+    common::in_cwd(
+        &r.main,
+        AddCmd {
+            paths: vec!["mid/leaf/leaf.txt".into()],
+            ..Default::default()
+        },
+    )
     .unwrap();
-    common::in_cwd(&r.main, || {
-        commands::commit::run(Some("deep commit"), false)
-    })
+    common::in_cwd(
+        &r.main,
+        CommitCmd {
+            message: Some("deep commit".into()),
+            ..Default::default()
+        },
+    )
     .unwrap();
 }
 
@@ -132,5 +188,13 @@ fn no_verify_bypasses_hooks() {
 
     std::fs::write(p.path.join("file.txt"), "changed\n").unwrap();
     common::git(&p.path, &["add", "file.txt"]);
-    common::in_cwd(&p.path, || commands::commit::run(Some("bypass"), true)).unwrap();
+    common::in_cwd(
+        &p.path,
+        CommitCmd {
+            message: Some("bypass".into()),
+            no_verify: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
 }

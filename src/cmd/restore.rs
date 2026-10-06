@@ -1,52 +1,73 @@
 //! `sgit restore` - restore working-tree files or unstage the index.
 
-use std::path::Path;
+use clap::Args;
+use std::path::{Path, PathBuf};
 
 use git2::{ObjectType, Repository, build::CheckoutBuilder};
 
 use crate::RepoTree;
+use crate::cmd::command::{Command, Context};
 use crate::error::Result;
 use crate::git::head_commit;
 use crate::repo::Repo;
 
-/// Restore working-tree changes or unstage index changes recursively.
-///
-/// - `filenames`: optional explicit files; empty means operate on all changed files.
-/// - `staged`: when `true`, unstage (`--staged` behavior) instead of restore.
-pub fn run(filenames: &[String], staged: bool) -> Result<()> {
-    let tree = RepoTree::discover(None)?;
+/// Restore working tree files or unstage changes, recursively.
+#[derive(Default, Debug, Args)]
+pub struct RestoreCmd {
+    /// Files to restore (empty = all changed files).
+    pub paths: Vec<PathBuf>,
+    /// Unstage files instead of discarding working-tree changes.
+    #[arg(short = 'S', long = "staged")]
+    pub staged: bool,
+}
 
-    if !filenames.is_empty() {
-        for filename in filenames {
-            match tree.resolve_file(filename) {
-                None => {
-                    eprintln!("Error: {filename} is not in any known repo/submodule");
-                }
-                Some((repo, rel)) => {
-                    let result = if staged {
-                        unstage(&repo.repo, std::slice::from_ref(&rel))
-                    } else {
-                        checkout_paths(&repo.repo, std::slice::from_ref(&rel))
-                    };
-                    match result {
-                        Ok(()) if staged => {
-                            println!("[{}] Unstaged {}", repo.label(), rel.display())
-                        }
-                        Ok(()) => println!("[{}] Restored {}", repo.label(), rel.display()),
-                        Err(e) => {
-                            eprintln!("[{}] Error restoring {}: {e}", repo.label(), rel.display())
+impl Command for RestoreCmd {
+    /// Restore working-tree changes or unstage index changes recursively.
+    ///
+    /// - `filenames`: optional explicit files; empty means operate on all changed files.
+    /// - `staged`: when `true`, unstage (`--staged` behavior) instead of restore.
+    fn run(&self, ctx: &Context) -> Result<()> {
+        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+
+        if !self.paths.is_empty() {
+            for filename in &self.paths {
+                match tree.resolve_file(filename) {
+                    None => {
+                        eprintln!(
+                            "Error: {} is not in any known repo/submodule",
+                            filename.display()
+                        );
+                    }
+                    Some((repo, rel)) => {
+                        let result = if self.staged {
+                            unstage(&repo.repo, std::slice::from_ref(&rel))
+                        } else {
+                            checkout_paths(&repo.repo, std::slice::from_ref(&rel))
+                        };
+                        match result {
+                            Ok(()) if self.staged => {
+                                println!("[{}] Unstaged {}", repo.label(), rel.display())
+                            }
+                            Ok(()) => println!("[{}] Restored {}", repo.label(), rel.display()),
+                            Err(e) => {
+                                eprintln!(
+                                    "[{}] Error restoring {}: {e}",
+                                    repo.label(),
+                                    rel.display()
+                                )
+                            }
                         }
                     }
                 }
             }
+            return Ok(());
         }
-        return Ok(());
-    }
 
-    for r in tree.all() {
-        restore_all_in(r, staged);
+        for r in tree.all() {
+            restore_all_in(r, self.staged);
+        }
+        Ok(())
     }
-    Ok(())
 }
 
 /// Restore or unstage all relevant changed files in one repo.
@@ -55,7 +76,7 @@ pub fn run(filenames: &[String], staged: bool) -> Result<()> {
 /// - `staged`: controls whether to unstage or restore working tree files.
 fn restore_all_in(r: &Repo, staged: bool) {
     let label = r.label();
-    let (st, un, _) = match r.list_status() {
+    let status = match r.status() {
         Ok(v) => v,
         Err(e) => {
             eprintln!("[{label}] Error listing status: {e}");
@@ -63,9 +84,9 @@ fn restore_all_in(r: &Repo, staged: bool) {
         }
     };
     let paths: Vec<std::path::PathBuf> = if staged {
-        st.into_iter().map(|e| e.path.into()).collect()
+        status.staged.into_iter().map(|e| e.path.into()).collect()
     } else {
-        un.into_iter().map(|e| e.path.into()).collect()
+        status.unstaged.into_iter().map(|e| e.path.into()).collect()
     };
     if paths.is_empty() {
         return;

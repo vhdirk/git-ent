@@ -1,7 +1,7 @@
 //! Tests for `sgit reset`.
 
 mod common;
-use sgit::commands;
+use sgit::cmd::reset::ResetCmd;
 
 #[test]
 /// Test case for reset unstages staged changes.
@@ -11,7 +11,14 @@ fn reset_unstages_staged_changes() {
     std::fs::write(p.path.join("file.txt"), "changed\n").unwrap();
     common::git(&p.path, &["add", "file.txt"]);
 
-    common::in_cwd(&p.path, || commands::reset::run(None, false)).unwrap();
+    common::in_cwd(
+        &p.path,
+        ResetCmd {
+            target_ref: None,
+            ..Default::default()
+        },
+    )
+    .unwrap();
 
     let out = common::git_out(&p.path, &["diff", "--cached", "--name-only"]);
     assert!(String::from_utf8_lossy(&out.stdout).trim().is_empty());
@@ -25,7 +32,14 @@ fn hard_reset_discards_all_changes() {
     std::fs::write(p.path.join("file.txt"), "changed\n").unwrap();
     common::git(&p.path, &["add", "file.txt"]);
 
-    common::in_cwd(&p.path, || commands::reset::run(None, true)).unwrap();
+    common::in_cwd(
+        &p.path,
+        ResetCmd {
+            target_ref: None,
+            hard: true,
+        },
+    )
+    .unwrap();
 
     assert_eq!(
         std::fs::read_to_string(p.path.join("file.txt")).unwrap(),
@@ -45,7 +59,14 @@ fn hard_reset_to_previous_commit() {
     common::git(&p.path, &["add", "file.txt"]);
     common::git(&p.path, &["commit", "-q", "-m", "second"]);
 
-    common::in_cwd(&p.path, || commands::reset::run(Some("HEAD~1"), true)).unwrap();
+    common::in_cwd(
+        &p.path,
+        ResetCmd {
+            target_ref: Some("HEAD~1".into()),
+            hard: true,
+        },
+    )
+    .unwrap();
 
     let now = String::from_utf8_lossy(&common::git_out(&p.path, &["rev-parse", "HEAD"]).stdout)
         .trim()
@@ -65,7 +86,14 @@ fn hard_reset_across_submodules() {
     std::fs::write(r.main.join("main.txt"), "changed\n").unwrap();
     std::fs::write(r.main.join("sub1/file1.txt"), "changed\n").unwrap();
 
-    common::in_cwd(&r.main, || commands::reset::run(None, true)).unwrap();
+    common::in_cwd(
+        &r.main,
+        ResetCmd {
+            target_ref: None,
+            hard: true,
+        },
+    )
+    .unwrap();
     assert_eq!(
         std::fs::read_to_string(r.main.join("main.txt")).unwrap(),
         "main\n"

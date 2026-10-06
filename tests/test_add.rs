@@ -1,7 +1,7 @@
 //! Tests for `sgit add`.
 
 mod common;
-use sgit::commands;
+use sgit::cmd::add::AddCmd;
 
 #[test]
 /// Test case for add single file.
@@ -9,9 +9,14 @@ use sgit::commands;
 fn add_single_file() {
     let p = common::plain_repo();
     std::fs::write(p.path.join("file.txt"), "changed\n").unwrap();
-    common::in_cwd(&p.path, || {
-        commands::add::run(&["file.txt".into()], false, false)
-    })
+    common::in_cwd(
+        &p.path,
+        AddCmd {
+            paths: vec!["file.txt".into()],
+            all: false,
+            update: false,
+        },
+    )
     .unwrap();
 
     let diff = common::git_out(&p.path, &["diff", "--cached", "--name-only"]);
@@ -24,9 +29,14 @@ fn add_single_file() {
 fn add_new_file() {
     let p = common::plain_repo();
     std::fs::write(p.path.join("new.txt"), "new\n").unwrap();
-    common::in_cwd(&p.path, || {
-        commands::add::run(&["new.txt".into()], false, false)
-    })
+    common::in_cwd(
+        &p.path,
+        AddCmd {
+            paths: vec!["new.txt".into()],
+            all: false,
+            update: false,
+        },
+    )
     .unwrap();
 }
 
@@ -37,9 +47,14 @@ fn add_multiple_files() {
     let p = common::plain_repo();
     std::fs::write(p.path.join("a.txt"), "a\n").unwrap();
     std::fs::write(p.path.join("b.txt"), "b\n").unwrap();
-    common::in_cwd(&p.path, || {
-        commands::add::run(&["a.txt".into(), "b.txt".into()], false, false)
-    })
+    common::in_cwd(
+        &p.path,
+        AddCmd {
+            paths: vec!["a.txt".into(), "b.txt".into()],
+            all: false,
+            update: false,
+        },
+    )
     .unwrap();
 
     let diff = common::git_out(&p.path, &["diff", "--cached", "--name-only"]);
@@ -49,14 +64,44 @@ fn add_multiple_files() {
 }
 
 #[test]
+/// Test case for add folder.
+///
+fn add_dir() {
+    let p = common::plain_repo();
+    let subdir = p.path.join("test");
+    std::fs::create_dir(&subdir).unwrap();
+    std::fs::write(subdir.join("a.txt"), "a\n").unwrap();
+    std::fs::write(subdir.join("b.txt"), "b\n").unwrap();
+    common::in_cwd(
+        &p.path,
+        AddCmd {
+            paths: vec!["test".into()],
+            all: false,
+            update: false,
+        },
+    )
+    .unwrap();
+
+    let diff = common::git_out(&p.path, &["diff", "--cached", "--name-only"]);
+    let staged = String::from_utf8_lossy(&diff.stdout);
+    assert!(staged.contains("test/a.txt"));
+    assert!(staged.contains("test/b.txt"));
+}
+
+#[test]
 /// Test case for add nonexistent file reports error.
 ///
 fn add_nonexistent_file_reports_error() {
     let p = common::plain_repo();
     // Should still succeed at library layer (reports to stderr, continues).
-    common::in_cwd(&p.path, || {
-        commands::add::run(&["/nonexistent/path/file.txt".into()], false, false)
-    })
+    common::in_cwd(
+        &p.path,
+        AddCmd {
+            paths: vec!["/nonexistent/path/file.txt".into()],
+            all: false,
+            update: false,
+        },
+    )
     .unwrap();
 }
 
@@ -66,9 +111,14 @@ fn add_nonexistent_file_reports_error() {
 fn add_file_in_submodule() {
     let r = common::repo_with_submodules();
     std::fs::write(r.main.join("sub1/file1.txt"), "changed\n").unwrap();
-    common::in_cwd(&r.main, || {
-        commands::add::run(&["sub1/file1.txt".into()], false, false)
-    })
+    common::in_cwd(
+        &r.main,
+        AddCmd {
+            paths: vec!["sub1/file1.txt".into()],
+            all: false,
+            update: false,
+        },
+    )
     .unwrap();
 
     let diff = common::git_out(
@@ -85,7 +135,15 @@ fn add_all_stages_everything() {
     let p = common::plain_repo();
     std::fs::write(p.path.join("file.txt"), "changed\n").unwrap();
     std::fs::write(p.path.join("new.txt"), "new\n").unwrap();
-    common::in_cwd(&p.path, || commands::add::run(&[], true, false)).unwrap();
+    common::in_cwd(
+        &p.path,
+        AddCmd {
+            paths: vec![],
+            all: true,
+            update: false,
+        },
+    )
+    .unwrap();
 }
 
 #[test]
@@ -95,7 +153,15 @@ fn add_all_across_submodules() {
     let r = common::repo_with_submodules();
     std::fs::write(r.main.join("main.txt"), "changed\n").unwrap();
     std::fs::write(r.main.join("sub1/file1.txt"), "changed\n").unwrap();
-    common::in_cwd(&r.main, || commands::add::run(&[], true, false)).unwrap();
+    common::in_cwd(
+        &r.main,
+        AddCmd {
+            paths: vec![],
+            all: true,
+            update: false,
+        },
+    )
+    .unwrap();
 
     let diff_main = common::git_out(&r.main, &["diff", "--cached", "--name-only"]);
     let main_staged = String::from_utf8_lossy(&diff_main.stdout);
@@ -113,7 +179,15 @@ fn add_update_stages_modified_not_untracked() {
     let p = common::plain_repo();
     std::fs::write(p.path.join("file.txt"), "changed\n").unwrap();
     std::fs::write(p.path.join("untracked.txt"), "new\n").unwrap();
-    common::in_cwd(&p.path, || commands::add::run(&[], false, true)).unwrap();
+    common::in_cwd(
+        &p.path,
+        AddCmd {
+            paths: vec![],
+            all: false,
+            update: true,
+        },
+    )
+    .unwrap();
 
     let diff = common::git_out(&p.path, &["diff", "--cached", "--name-only"]);
     let s = String::from_utf8_lossy(&diff.stdout);
@@ -126,5 +200,15 @@ fn add_update_stages_modified_not_untracked() {
 ///
 fn all_and_update_mutually_exclusive() {
     let p = common::plain_repo();
-    assert!(common::in_cwd(&p.path, || commands::add::run(&[], true, true)).is_err());
+    assert!(
+        common::in_cwd(
+            &p.path,
+            AddCmd {
+                paths: vec![],
+                all: true,
+                update: true,
+            }
+        )
+        .is_err()
+    );
 }
