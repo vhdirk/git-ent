@@ -1,11 +1,9 @@
-//! `sgit add` - route paths (from anywhere in the tree) to the right repo.
-
 use clap::Args;
 use std::path::PathBuf;
 
-use crate::RepoTree;
-use crate::cmd::command::{Cmd, Context};
+use crate::cli::command::{Cmd, Context};
 use crate::error::Result;
+use crate::repo_tree::RepoTree;
 
 /// Add files to the git index (paths can be from any submodule).
 #[derive(Default, Debug, Args)]

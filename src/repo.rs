@@ -1,4 +1,4 @@
-use crate::SgitError;
+use crate::error::GitNestError;
 use crate::error::Result;
 use crate::git::{head_commit, signature};
 use crate::repo_tree::{ChangeKind, StatusEntry};
@@ -220,7 +220,7 @@ impl Repo {
             Ok(b) => (b, false),
             Err(e) if e.code() == ErrorCode::NotFound => {
                 if !create {
-                    return Err(SgitError::BranchNotFound(name.to_string()));
+                    return Err(GitNestError::BranchNotFound(name.to_string()));
                 }
                 let head = self.repo.head()?.peel_to_commit()?;
                 let branch = self.repo.branch(name, &head, false)?;

@@ -1,15 +1,15 @@
-//! `sgit merge <branch>` - recursive merge, depth-first.
+//! `git-nest merge <branch>` - recursive merge, depth-first.
 //!
 //! For each (sub)module, merge `<branch>` into the current branch using
 //! libgit2's merge machinery:
 //!
 //! - fast-forward when possible,
 //! - proper merge-commit otherwise,
-//! - conflict --> abort with a helpful [`SgitError::Conflict`].
+//! - conflict --> abort with a helpful [`GitNestError::Conflict`].
 //!
 //! When a submodule's HEAD advances as a result of the merge, the parent
 //! repo automatically records the moved submodule pointer in a follow-up
-//! commit (matching sgit's commit-time behaviour).
+//! commit (matching git-nest's commit-time behaviour).
 
 use clap::Args;
 use git2::{
@@ -17,8 +17,8 @@ use git2::{
 };
 
 use crate::RepoTree;
-use crate::cmd::command::{Cmd, Context};
-use crate::error::{Result, SgitError};
+use crate::cli::command::{Cmd, Context};
+use crate::error::{GitNestError, Result};
 use crate::git::{head_commit, signature};
 use crate::repo::Repo;
 use crate::repo_tree::changed_submodule_paths;
@@ -76,7 +76,7 @@ fn merge_one(r: &Repo, branch: &str) -> Result<()> {
     let target_oid = br
         .get()
         .target()
-        .ok_or_else(|| SgitError::Other(format!("branch '{branch}' has no target")))?;
+        .ok_or_else(|| GitNestError::Other(format!("branch '{branch}' has no target")))?;
 
     let annotated: AnnotatedCommit = repo.find_annotated_commit(target_oid)?;
     let (analysis, _pref) = repo.merge_analysis(&[&annotated])?;
@@ -87,7 +87,7 @@ fn merge_one(r: &Repo, branch: &str) -> Result<()> {
 
     // Figure out the current branch name (refname).
     let head_ref = repo.head()?;
-    let refname = head_ref.name().map_err(SgitError::from)?.to_string();
+    let refname = head_ref.name().map_err(GitNestError::from)?.to_string();
 
     if analysis.is_fast_forward() {
         let mut reference = repo.find_reference(&refname)?;
@@ -111,7 +111,7 @@ fn merge_one(r: &Repo, branch: &str) -> Result<()> {
         let head = head_commit(repo)?;
         repo.reset(head.as_object(), ResetType::Hard, None)?;
         repo.cleanup_state()?;
-        return Err(SgitError::Conflict {
+        return Err(GitNestError::Conflict {
             repo: r.display_label(),
             workdir: r.workdir.clone(),
             hint: format!("git merge {branch}"),

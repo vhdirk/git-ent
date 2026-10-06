@@ -2,11 +2,11 @@
 authors = ["Dirk Van Haerenborgh"]
 language = "en"
 src = "src"
-title = "sgit"
+title = "git-nest"
 description = "Manage projects with (nested) git submodules"
 
 [output.html]
-git-repository-url = "https://github.com/vhdirk/sgit"
+git-repository-url = "https://github.com/vhdirk/git-nest"
 default-theme = "ayu"
 preferred-dark-theme = "ayu"
 additional-css = []

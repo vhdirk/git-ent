@@ -1,18 +1,18 @@
-# `sgit reset`
+# `git-nest reset`
 
 Reset HEAD across all repos recursively.
 
 ```bash
 # Unstage all staged changes (mixed reset)
-sgit reset
+git-nest reset
 
 # Hard reset to HEAD - discard all changes
-sgit reset --hard
+git-nest reset --hard
 
 # Hard reset to a specific ref
-sgit reset --hard HEAD~1
-sgit reset --hard <commit-sha>
-sgit reset --hard origin/main
+git-nest reset --hard HEAD~1
+git-nest reset --hard <commit-sha>
+git-nest reset --hard origin/main
 ```
 
 | Flag / Arg | Description                                                                                   |

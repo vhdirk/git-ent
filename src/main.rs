@@ -1,45 +1,83 @@
-//! sgit - manage projects with (nested) git submodules.
-
 use std::process::ExitCode;
 
-use clap::Parser;
-use sgit::cli::{Cli, run};
-use sgit::config::load_root_config;
+use std::path::PathBuf;
+
+use clap::{Parser, Subcommand};
+use git_nest::cli::add::AddCmd;
+use git_nest::cli::branch::BranchCmd;
+use git_nest::cli::checkout::CheckoutCmd;
+use git_nest::cli::clone::CloneCmd;
+use git_nest::cli::command::{Cmd, Context};
+use git_nest::cli::commit::CommitCmd;
+use git_nest::cli::merge::MergeCmd;
+use git_nest::cli::push::PushCmd;
+use git_nest::cli::rebase::RebaseCmd;
+use git_nest::cli::reset::ResetCmd;
+use git_nest::cli::restore::RestoreCmd;
+use git_nest::cli::squash::SquashCmd;
+use git_nest::cli::status::StatusCmd;
+use git_nest::cli::switch::SwitchCmd;
+use git_nest::cli::update::UpdateCmd;
+
+/// git-nest - manage projects with (nested) git submodules.
+#[derive(Debug, Parser)]
+#[command(name = "git-nest", version, about, long_about = None)]
+pub struct Cli {
+    #[arg(short = 'C')]
+    pub workdir: Option<PathBuf>,
+
+    #[command(subcommand)]
+    pub command: CliCommand,
+}
+
+#[derive(Debug, Subcommand)]
+pub enum CliCommand {
+    Clone(CloneCmd),
+    Update(UpdateCmd),
+    Status(StatusCmd),
+    Branch(BranchCmd),
+    Checkout(CheckoutCmd),
+    Switch(SwitchCmd),
+    Add(AddCmd),
+    Commit(CommitCmd),
+    Push(PushCmd),
+    Restore(RestoreCmd),
+    Reset(ResetCmd),
+    Merge(MergeCmd),
+    Rebase(RebaseCmd),
+    Squash(SquashCmd),
+}
 
 /// Parse CLI args, run the selected command, and map errors to exit code 1.
 fn main() -> ExitCode {
-    let raw_args: Vec<String> = std::env::args().collect();
+    let cli = Cli::parse();
 
-    // Expand alias: if the first positional argument matches an alias defined
-    // in the root repo config (or global config), replace it with the expansion
-    // before handing off to Clap.
-    let args = expand_alias(raw_args);
+    let ctx = Context {
+        workdir: cli.workdir.clone(),
+    };
 
-    let cli = Cli::parse_from(args);
-    match run(cli) {
+    let result = match cli.command {
+        CliCommand::Clone(args) => args.run(&ctx),
+        CliCommand::Update(args) => args.run(&ctx),
+        CliCommand::Status(args) => args.run(&ctx),
+        CliCommand::Branch(args) => args.run(&ctx),
+        CliCommand::Checkout(args) => args.run(&ctx),
+        CliCommand::Switch(args) => args.run(&ctx),
+        CliCommand::Add(args) => args.run(&ctx),
+        CliCommand::Commit(args) => args.run(&ctx),
+        CliCommand::Push(args) => args.run(&ctx),
+        CliCommand::Restore(args) => args.run(&ctx),
+        CliCommand::Reset(args) => args.run(&ctx),
+        CliCommand::Merge(args) => args.run(&ctx),
+        CliCommand::Rebase(args) => args.run(&ctx),
+        CliCommand::Squash(args) => args.run(&ctx),
+    };
+
+    match result {
         Ok(()) => ExitCode::SUCCESS,
         Err(err) => {
             eprintln!("{err}");
             ExitCode::from(1)
         }
     }
-}
-
-/// Return `args` with the first positional argument expanded if it is an alias.
-fn expand_alias(mut args: Vec<String>) -> Vec<String> {
-    // args[0] is the binary name; args[1] (if present) is the subcommand/alias.
-    let Some(name) = args.get(1).cloned() else {
-        return args;
-    };
-    // Don't expand flags like --help or --version.
-    if name.starts_with('-') {
-        return args;
-    }
-    let cfg = load_root_config();
-    let Some(expansion) = cfg.expand_alias(&name) else {
-        return args;
-    };
-    // Replace args[1] with the expanded words.
-    args.splice(1..2, expansion);
-    args
 }

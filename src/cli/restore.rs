@@ -1,12 +1,10 @@
-//! `sgit restore` - restore working-tree files or unstage the index.
-
 use clap::Args;
 use std::path::{Path, PathBuf};
 
 use git2::{ObjectType, Repository, build::CheckoutBuilder};
 
 use crate::RepoTree;
-use crate::cmd::command::{Cmd, Context};
+use crate::cli::command::{Cmd, Context};
 use crate::error::Result;
 use crate::git::head_commit;
 use crate::repo::Repo;

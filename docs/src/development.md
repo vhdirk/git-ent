@@ -8,7 +8,7 @@ cargo test
 
 The integration tests spin up ephemeral git repos (plain, flat
 submodules, and nested `main --> mid --> leaf` layouts) inside
-`TempDir`s, then invoke the compiled `sgit` binary via
+`TempDir`s, then invoke the compiled `git-nest` binary via
 [`assert_cmd`](https://docs.rs/assert_cmd).
 
 ## Building documentation
@@ -39,7 +39,7 @@ src/
 │   ├── squash.rs        - NEW: depth-first squash across submodules
 │   ├── status.rs
 │   └── update.rs
-├── error.rs             - SgitError (thiserror)
+├── error.rs             - GitNestError (thiserror)
 ├── git.rs               - `git` subprocess helpers
 ├── lib.rs               - crate root
 ├── main.rs              - binary entry point

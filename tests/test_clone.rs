@@ -1,8 +1,6 @@
-//! Tests for `sgit clone`.
-
 mod common;
 
-use sgit::cmd::clone::CloneCmd;
+use git_nest::cli::clone::CloneCmd;
 use std::path::Path;
 
 /// Test case for cloneable.

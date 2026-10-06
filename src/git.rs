@@ -1,12 +1,6 @@
-//! Small libgit2 helpers shared by the command modules.
-//!
-//! sgit never shells out to the `git` binary - every operation is
-//! implemented on top of [`git2`]. This module houses the handful of
-//! small helpers that didn't fit in [`crate::repo_tree`].
-
 use git2::{Commit, ObjectType, Oid, Remote, Repository, Signature};
 
-use crate::error::{Result, SgitError};
+use crate::error::{GitNestError, Result};
 
 /// Build a [`Signature`] for `repo`.
 ///
@@ -52,5 +46,5 @@ pub fn first_remote(repo: &Repository) -> Option<String> {
 /// Find a remote by name.
 pub fn find_remote<'a>(repo: &'a Repository, name: &str) -> Result<Remote<'a>> {
     repo.find_remote(name)
-        .map_err(|e| SgitError::Other(format!("remote '{name}' not found: {e}")))
+        .map_err(|e| GitNestError::Other(format!("remote '{name}' not found: {e}")))
 }

@@ -1,5 +1,3 @@
-//! `sgit squash <branch>` - collapse commits since the merge-base, depth-first.
-//!
 //! Mirrors GitHub/GitLab's "squash and merge" but nests naturally across
 //! submodules: each submodule is squashed first, then the parent picks up
 //! the moved submodule pointer as part of its own squash commit.
@@ -7,9 +5,9 @@
 use git2::{BranchType, Oid, Repository, ResetType};
 
 use crate::RepoTree;
-use crate::cmd::command::{Cmd, Context};
-use crate::cmd::reset::reset_to;
-use crate::error::{Result, SgitError};
+use crate::cli::command::{Cmd, Context};
+use crate::cli::reset::reset_to;
+use crate::error::{GitNestError, Result};
 use crate::git::signature;
 use crate::repo::Repo;
 use crate::repo_tree::changed_submodule_paths;
@@ -96,12 +94,12 @@ fn squash_one(r: &Repo, branch: &str, message: Option<&str>) -> Result<SquashOut
 
     let head_oid = head_ref
         .target()
-        .ok_or_else(|| SgitError::Other("HEAD has no target".into()))?;
+        .ok_or_else(|| GitNestError::Other("HEAD has no target".into()))?;
     let branch_oid = repo
         .find_branch(branch, BranchType::Local)?
         .get()
         .target()
-        .ok_or_else(|| SgitError::Other(format!("branch '{branch}' has no target")))?;
+        .ok_or_else(|| GitNestError::Other(format!("branch '{branch}' has no target")))?;
 
     // Find merge-base.
     let base: Oid = match repo.merge_base(head_oid, branch_oid) {
