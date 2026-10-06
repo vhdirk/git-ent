@@ -1,8 +1,6 @@
-//! Tests for `sgit update`.
-
 mod common;
 
-use sgit::cmd::update::UpdateCmd;
+use git_nest::cli::update::UpdateCmd;
 use std::path::Path;
 
 #[test]

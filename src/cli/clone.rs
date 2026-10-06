@@ -1,6 +1,4 @@
-//! `sgit clone` - recursive clone via libgit2.
-
-use crate::cmd::command::{Cmd, Context};
+use crate::cli::command::{Cmd, Context};
 use clap::Args;
 use std::path::PathBuf;
 
@@ -30,7 +28,7 @@ impl Cmd for CloneCmd {
             dest.display()
         );
         let mut fetch = FetchOptions::new();
-        fetch.remote_callbacks(crate::cmd::push::remote_callbacks());
+        fetch.remote_callbacks(crate::cli::push::remote_callbacks());
         let repo = RepoBuilder::new()
             .fetch_options(fetch)
             .clone(&self.url, &dest)?;
@@ -46,7 +44,7 @@ impl Cmd for CloneCmd {
 fn init_submodules_recursive(repo: &Repository) -> Result<()> {
     for mut sm in repo.submodules()? {
         let mut fetch_opts = FetchOptions::new();
-        fetch_opts.remote_callbacks(crate::cmd::push::remote_callbacks());
+        fetch_opts.remote_callbacks(crate::cli::push::remote_callbacks());
         let mut update_opts = SubmoduleUpdateOptions::new();
         update_opts.fetch(fetch_opts);
         sm.update(true, Some(&mut update_opts))?;

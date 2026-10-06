@@ -1,7 +1,5 @@
-//! Tests for `sgit branch`.
-
 mod common;
-use sgit::cmd::branch::BranchCmd;
+use git_nest::cli::branch::BranchCmd;
 
 #[test]
 /// Test case for creates branch in plain repo.

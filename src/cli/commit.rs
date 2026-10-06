@@ -1,12 +1,10 @@
-//! `sgit commit` - depth-first commit with automatic submodule-pointer staging.
-
 use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use crate::RepoTree;
-use crate::cmd::command::{Cmd, Context};
-use crate::error::{Result, SgitError};
+use crate::cli::command::{Cmd, Context};
+use crate::error::{GitNestError, Result};
 use clap::Args;
 use tempfile::NamedTempFile;
 
@@ -23,13 +21,7 @@ pub struct CommitCmd {
 
 impl Cmd for CommitCmd {
     /// Commit staged changes across all repos in depth-first order.
-    ///
-    /// - `message`: optional commit message; when absent, opens an editor.
-    /// - `no_verify`: accepted for CLI parity (hooks are not run by libgit2).
     fn run(&self, ctx: &Context) -> Result<()> {
-        // `no_verify` is accepted for CLI parity with `git commit`, but
-        // libgit2 never invokes pre-commit/commit-msg hooks anyway - so
-        // every commit made by sgit is implicitly "no-verify".
         let tree = RepoTree::discover(ctx.workdir.as_deref())?;
         let owned: String;
         let msg: &str = match self.message.as_deref() {
@@ -41,7 +33,7 @@ impl Cmd for CommitCmd {
                         owned = m;
                         &owned
                     }
-                    None => return Err(SgitError::EmptyCommitMessage),
+                    None => return Err(GitNestError::EmptyCommitMessage),
                 }
             }
         };
@@ -139,7 +131,7 @@ fn run_hook(repo: &git2::Repository, name: &str, argument: Option<&Path>) -> Res
 
     let status = command.status()?;
     if !status.success() {
-        return Err(crate::error::SgitError::Other(format!(
+        return Err(crate::error::GitNestError::Other(format!(
             "{name} hook failed with status {status}"
         )));
     }

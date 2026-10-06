@@ -1,9 +1,9 @@
-# `sgit clone`
+# `git-nest clone`
 
 Clone a repository recursively (including all submodules).
 
 ```bash
-sgit clone <url> [dest]
+git-nest clone <url> [dest]
 ```
 
 | Argument | Description                                                   |

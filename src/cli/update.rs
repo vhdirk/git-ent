@@ -1,11 +1,9 @@
-//! `sgit update` - init + update submodules recursively, via libgit2.
-
-use crate::cmd::command::{Cmd, Context};
+use crate::cli::command::{Cmd, Context};
 use clap::Args;
 use git2::{FetchOptions, Repository, SubmoduleUpdateOptions};
 
 use crate::RepoTree;
-use crate::cmd::push::remote_callbacks;
+use crate::cli::push::remote_callbacks;
 use crate::error::Result;
 
 /// Initialize and update all submodules recursively.

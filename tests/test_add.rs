@@ -1,7 +1,5 @@
-//! Tests for `sgit add`.
-
 mod common;
-use sgit::cmd::add::AddCmd;
+use git_nest::cli::add::AddCmd;
 
 #[test]
 /// Test case for add single file.

@@ -1,12 +1,10 @@
-//! Error types for sgit.
-
 use std::path::PathBuf;
 
 use thiserror::Error;
 
-/// The sgit error type.
+/// The git-nest error type.
 #[derive(Debug, Error)]
-pub enum SgitError {
+pub enum GitNestError {
     /// A libgit2 call failed.
     #[error("git2: {0}")]
     Git2(#[from] git2::Error),
@@ -45,4 +43,4 @@ pub enum SgitError {
 }
 
 /// The crate's [`Result`](std::result::Result) alias.
-pub type Result<T> = std::result::Result<T, SgitError>;
+pub type Result<T> = std::result::Result<T, GitNestError>;

@@ -1,23 +1,23 @@
-# `sgit switch`
+# `git-nest switch`
 
 Recursive equivalent of `git switch`. Switches branches (or creates
 them) across the top-level repo and every submodule.
 
 ```bash
 # Switch to an existing branch everywhere
-sgit switch <branch>
+git-nest switch <branch>
 
 # Create a new branch from HEAD and switch to it everywhere
-sgit switch -c <new-branch>
+git-nest switch -c <new-branch>
 
 # Create from a specific start point
-sgit switch -c <new-branch> <start-point>
+git-nest switch -c <new-branch> <start-point>
 
 # Force-create (reset branch pointer if it already exists)
-sgit switch -C <branch> [<start-point>]
+git-nest switch -C <branch> [<start-point>]
 
 # Detach HEAD at a commit-ish everywhere
-sgit switch --detach <commit-ish>
+git-nest switch --detach <commit-ish>
 ```
 
 | Flag                   | Description                                                        |

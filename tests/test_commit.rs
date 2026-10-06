@@ -1,7 +1,5 @@
-//! Tests for `sgit commit`.
-
 mod common;
-use sgit::cmd::{add::AddCmd, commit::CommitCmd};
+use git_nest::cli::{add::AddCmd, commit::CommitCmd};
 
 #[test]
 /// Test case for commit staged changes.

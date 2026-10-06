@@ -1,9 +1,5 @@
-//! Tests for `sgit squash <branch>` - the new squash-onto-merge-base
-//! command. Mirrors GitHub/GitLab's "squash and merge" behaviour,
-//! depth-first across submodules.
-
 mod common;
-use sgit::cmd::{branch::BranchCmd, squash::SquashCmd};
+use git_nest::cli::{branch::BranchCmd, squash::SquashCmd};
 
 #[test]
 /// Test case for squash missing branch skips.

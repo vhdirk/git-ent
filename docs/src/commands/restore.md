@@ -1,19 +1,19 @@
-# `sgit restore`
+# `git-nest restore`
 
 Restore working tree files or unstage changes, recursively.
 
 ```bash
 # Discard unstaged changes in specific files
-sgit restore <file> [<file> ...]
+git-nest restore <file> [<file> ...]
 
 # Discard all unstaged changes across the entire tree
-sgit restore
+git-nest restore
 
 # Unstage specific files
-sgit restore -S <file> [<file> ...]
+git-nest restore -S <file> [<file> ...]
 
 # Unstage everything
-sgit restore -S
+git-nest restore -S
 ```
 
 | Flag             | Description                                               |

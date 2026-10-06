@@ -1,8 +1,8 @@
-# sgit (/ʃɪt/)
+# git nest
 
-sgit, short for **subgit**, is a tool to manage projects with (nested) git submodules.
+git nest is a tool to manage projects with (nested) git submodules.
 
-The CLI mirrors familiar git subcommands but operates **recursively** across every submodule in the tree - so a single `sgit commit -m "fix"`
+The CLI mirrors familiar git subcommands but operates **recursively** across every submodule in the tree - so a single `git nest commit -m "fix"`
 creates a commit in every repo that has staged changes, then automatically updates the submodule pointers in parent repos.
 
 ## Installation
@@ -18,148 +18,148 @@ A NixOS flake is provided that pins all of this.
 
 ```bash
 # Clone a project and all its submodules in one step
-sgit clone https://github.com/org/project.git
+git nest clone https://github.com/org/project.git
 
 # Initialize / update submodules in an existing checkout
-sgit update
+git nest update
 
 # See all changes across the entire tree
-sgit status
+git nest status
 
 # Stage files - paths from any submodule work
-sgit add lib/core/src/main.rs app/config.yaml
+git nest add lib/core/src/main.rs app/config.yaml
 
 # Stage everything (like git add -A)
-sgit add -A
+git nest add -A
 
 # Commit everywhere that has staged changes
-sgit commit -m "update config and core logic"
+git nest commit -m "update config and core logic"
 
 # Push all repos that have unpushed commits
-sgit push
+git nest push
 
 # Squash a feature branch's commits (depth-first) onto main
-sgit squash main
+git nest squash main
 ```
 
 ## Commands
 
-### `sgit clone`
+### `git nest clone`
 
 Clone a repository recursively (including all submodules).
 
 ```bash
-sgit clone <url> [dest]
+git nest clone <url> [dest]
 ```
 
 Equivalent to `git clone --recurse-submodules`.
 
-### `sgit update`
+### `git nest update`
 
 Initialize and update all submodules recursively (`git submodule update --init --recursive`).
 
-### `sgit status`
+### `git nest status`
 
 Show a single consolidated status view across the entire tree. File paths are shown relative to the top-level project root.
 
-### `sgit branch`
+### `git nest branch`
 
 List or create branches across the top-level project and every submodule.
 
 ```bash
-sgit branch           # list
-sgit branch -c feat   # create 'feat' everywhere
+git nest branch           # list
+git nest branch -c feat   # create 'feat' everywhere
 ```
 
-### `sgit switch`
+### `git nest switch`
 
 Switch branches (or create them) recursively across every repo.
 
 ```bash
-sgit switch <branch>                  # switch to an existing branch
-sgit switch -c <new-branch>           # create and switch
-sgit switch -c <new-branch> <start>   # create from a start point
-sgit switch -C <branch> [<start>]     # force-create (reset if exists)
-sgit switch --detach <commit-ish>     # detach HEAD everywhere
+git nest switch <branch>                  # switch to an existing branch
+git nest switch -c <new-branch>           # create and switch
+git nest switch -c <new-branch> <start>   # create from a start point
+git nest switch -C <branch> [<start>]     # force-create (reset if exists)
+git nest switch --detach <commit-ish>     # detach HEAD everywhere
 ```
 
 Repos where the target branch does not exist emit a warning and stay on their current branch.
 
-### `sgit checkout`
+### `git nest checkout`
 
 Legacy branch-switching and file-restore command.
 
 ```bash
-sgit checkout <branch>            # switch branch everywhere
-sgit checkout -b <branch>         # create and switch
-sgit checkout <branch> -- <file>  # restore files from a branch
+git nest checkout <branch>            # switch branch everywhere
+git nest checkout -b <branch>         # create and switch
+git nest checkout <branch> -- <file>  # restore files from a branch
 ```
 
-For new work prefer `sgit switch` - it has a cleaner interface and matches modern git conventions.
+For new work prefer `git nest switch` - it has a cleaner interface and matches modern git conventions.
 
-### `sgit add`
+### `git nest add`
 
-Add files to the git index - from any submodule. Paths are the same as those shown by `sgit status`.
+Add files to the git index - from any submodule. Paths are the same as those shown by `git nest status`.
 
 ```bash
-sgit add <file>...     # stage specific files (routed to the deepest owning repo)
-sgit add -A            # like git add -A, everywhere
-sgit add -u            # tracked changes only, everywhere
+git nest add <file>...     # stage specific files (routed to the deepest owning repo)
+git nest add -A            # like git add -A, everywhere
+git nest add -u            # tracked changes only, everywhere
 ```
 
-### `sgit commit`
+### `git nest commit`
 
 Commit across all (sub)modules that have staged changes.
 
 ```bash
-sgit commit -m "message"
-sgit commit -m "message" --no-verify   # skip pre-commit / commit-msg hooks
-sgit commit                            # opens $EDITOR with a git-style template
+git nest commit -m "message"
+git nest commit -m "message" --no-verify   # skip pre-commit / commit-msg hooks
+git nest commit                            # opens $EDITOR with a git-style template
 ```
 
 Commits are depth-first; submodule pointer updates are auto-staged in parent repos.
 
-### `sgit push`
+### `git nest push`
 
 Push to remote across all repos that have commits to push.
 
 ```bash
-sgit push
-sgit push -o merge_request.create      # push options are repeatable
+git nest push
+git nest push -o merge_request.create      # push options are repeatable
 ```
 
 Repos with no remote, a detached HEAD, or no unpushed commits are silently skipped. For a merge-request shortcut, define a `pushmr` alias
 in config (see the alias section below).
 
-### `sgit restore`
+### `git nest restore`
 
 Restore working-tree files or unstage changes, recursively.
 
 ```bash
-sgit restore <file>...         # discard unstaged changes in specific files
-sgit restore                   # discard all unstaged changes in the tree
-sgit restore -S <file>...      # unstage specific files
-sgit restore -S                # unstage everything
+git nest restore <file>...         # discard unstaged changes in specific files
+git nest restore                   # discard all unstaged changes in the tree
+git nest restore -S <file>...      # unstage specific files
+git nest restore -S                # unstage everything
 ```
 
-### `sgit reset`
+### `git nest reset`
 
 ```bash
-sgit reset                     # mixed reset (unstage all)
-sgit reset --hard              # discard all changes
-sgit reset --hard HEAD~1       # ...to a specific ref
+git nest reset                     # mixed reset (unstage all)
+git nest reset --hard              # discard all changes
+git nest reset --hard HEAD~1       # ...to a specific ref
 ```
 
-### `sgit merge <branch>`
+### `git nest merge <branch>`
 
 Merge `<branch>` recursively across all submodules, depth-first. Auto-commits updated submodule pointers in parents. Conflicts abort with
 instructions for the failing repo.
 
-### `sgit rebase <branch>`
+### `git nest rebase <branch>`
 
 Rebase all branches recursively onto `<branch>`. Same semantics as `merge` for submodule pointers and conflicts.
 
-### `sgit squash <branch>`
+### `git nest squash <branch>`
 
 Squash all commits on the current branch back to `merge-base(HEAD, <branch>)`, recursively depth-first across submodules. This is the
 depth-first equivalent of GitHub/GitLab's "squash and merge":
@@ -175,55 +175,27 @@ A parent with no commits of its own to squash but a dirty submodule pointer stil
 tree invariant.
 
 ```bash
-sgit squash main
-sgit squash main -m "feat: squashed merge of MR 42"
+git nest squash main
+git nest squash main -m "feat: squashed merge of MR 42"
 ```
 
 ## Configuration
 
-sgit reads two config files per operation:
+git nest reads two config files per operation:
 
-- **Global**: `~/.config/sgit/sgit.toml` (XDG: `$XDG_CONFIG_HOME/sgit/sgit.toml`).
+- **Global**: `~/.config/git-nest/git-nest.toml` (XDG: `$XDG_CONFIG_HOME/git-nest/git-nest.toml`).
   Exclusions apply to every repo on the machine.
-- **Repo-local**: `.sgit.toml` at the root of any repo (root or submodule).
+- **Repo-local**: `.git-nest.toml` at the root of any repo (root or submodule).
   Exclusions are relative to that repo root and may target nested submodules (for example `mid/leaf`).
 
 Both files use the same format and are merged; duplicates are deduplicated.
 
 ```toml
-# .sgit.toml  or  ~/.config/sgit/sgit.toml
+# .git-nest.toml  or  ~/.config/git-nest/git-nest.toml
 exclude = ["vendor/heavy-sdk", "third_party/legacy"]
 ```
 
 Each entry in `exclude` is matched as a full path relative to the repo that owns the config file, so nested paths are supported.
-
-### Command aliases
-
-You can define command aliases in config files using `[alias]`.
-
-```toml
-[alias]
-pushmr = "push -o merge_request.create -o merge_request.remove_source_branch -o merge_request.merge_when_pipeline_succeeds"
-co = "checkout"
-st = "status"
-```
-
-Usage:
-
-```bash
-sgit pushmr
-sgit co main
-sgit st
-```
-
-Alias config locations and scope:
-
-- **Global** aliases in `~/.config/sgit/sgit.toml` (or `$XDG_CONFIG_HOME/sgit/sgit.toml`) apply everywhere.
-- **Root repo** aliases in `<project-root>/.sgit.toml` override global aliases.
-- **Submodule** `.sgit.toml` aliases are ignored.
-
-Exclusions apply at discovery time and affect **all** sgit operations.
-A missing or unparseable file does not abort the current command.
 
 ## Design
 

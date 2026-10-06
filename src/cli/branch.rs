@@ -1,10 +1,8 @@
-//! `sgit branch` - list or create branches across the whole tree.
-
 use clap::Args;
 use git2::BranchType;
 
 use crate::RepoTree;
-use crate::cmd::command::{Cmd, Context};
+use crate::cli::command::{Cmd, Context};
 use crate::error::Result;
 
 /// List or create branches across the whole tree.
