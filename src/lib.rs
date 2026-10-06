@@ -1,4 +1,4 @@
-//! sgit library: the recursive-submodule-git tool.
+//! git_nest library: the recursive-submodule-git tool.
 //!
 //! The public surface consists of:
 //! - [`RepoTree`] - the core abstraction modelling a top-level repo and
@@ -7,15 +7,14 @@
 //!   functions in [`commands`].
 //! - [`commands`] - one module per subcommand (`clone`, `status`, `add`,
 //!   `commit`, `push`, `squash`, …).
-//! - [`SgitError`] - the crate-wide error type.
+//! - [`GitNestError`] - the crate-wide error type.
 
 pub mod cli;
-pub mod cmd;
 pub mod config;
 pub mod error;
 pub mod git;
 pub mod repo;
 pub mod repo_tree;
 
-pub use error::{Result, SgitError};
+pub use error::{GitNestError, Result};
 pub use repo_tree::RepoTree;

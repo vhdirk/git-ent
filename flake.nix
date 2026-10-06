@@ -27,12 +27,12 @@
           }:
           {
             overlayAttrs = {
-              inherit (config.packages) sgit;
+              inherit (config.packages) git-nest;
             };
 
             packages = rec {
-              default = sgit;
-              sgit = import ./nix/package.nix {
+              default = git-nest;
+              git-nest = import ./nix/package.nix {
                 inherit
                   pkgs
                   inputs
@@ -84,7 +84,7 @@
                 openssl.dev
                 cargo-tarpaulin
                 cargo-expand
-                # config.packages.sgit
+                # config.packages.git-nest
               ];
             };
           };

@@ -1,6 +1,6 @@
 # Design
 
-sgit is built around a single abstraction - **`RepoTree`** - which
+git-nest is built around a single abstraction - **`RepoTree`** - which
 models the top-level repo and all its (nested) submodules as a
 depth-first traversable tree. Every command creates a `RepoTree` and
 operates over it.
@@ -21,26 +21,26 @@ RepoTree
   their parents. Commits propagate upward correctly and pushes never
   push a parent that references a submodule commit the remote hasn't
   received yet.
-- **Automatic submodule pointer staging** - when `sgit commit` detects
+- **Automatic submodule pointer staging** - when `git-nest commit` detects
   that a submodule HEAD has moved, it stages the updated pointer in the
   parent before committing, keeping everything in sync with a single
   message.
-- **Smart file routing** - `sgit add` and `sgit restore` accept paths
+- **Smart file routing** - `git-nest add` and `git-nest restore` accept paths
   relative to the project root and automatically figure out which repo
   each file belongs to, picking the **deepest** matching repo.
 
 ## Module layout
 
-| Module                     | Purpose                                       |
-|----------------------------|-----------------------------------------------|
-| [`sgit::cli`]              | `clap`-derived CLI surface and dispatcher.    |
-| [`sgit::commands`]         | One submodule per subcommand.                 |
-| [`sgit::repo_tree`]        | `RepoTree`, status models, helpers.           |
-| [`sgit::error`]            | `SgitError` via `thiserror`.                  |
-| [`sgit::git`]              | Thin wrapper around shelling out to `git`.    |
+| Module                         | Purpose                                       |
+|--------------------------------|-----------------------------------------------|
+| [`git_nest::cli`]              | `clap`-derived CLI surface and dispatcher.    |
+| [`git_nest::commands`]         | One submodule per subcommand.                 |
+| [`git_nest::repo_tree`]        | `RepoTree`, status models, helpers.           |
+| [`git_nest::error`]            | `GitNestError` via `thiserror`.               |
+| [`git_nest::git`]              | Thin wrapper around shelling out to `git`.    |
 
-[`sgit::cli`]: ../doc/sgit/cli/index.html
-[`sgit::commands`]: ../doc/sgit/commands/index.html
-[`sgit::repo_tree`]: ../doc/sgit/repo_tree/index.html
-[`sgit::error`]: ../doc/sgit/error/index.html
-[`sgit::git`]: ../doc/sgit/git/index.html
+[`git_nest::cli`]: ../doc/git-nest/cli/index.html
+[`git_nest::commands`]: ../doc/git-nest/commands/index.html
+[`git_nest::repo_tree`]: ../doc/git-nest/repo_tree/index.html
+[`git_nest::error`]: ../doc/git-nest/error/index.html
+[`git_nest::git`]: ../doc/git-nest/git/index.html

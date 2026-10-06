@@ -1,9 +1,7 @@
-//! `sgit reset` - mixed, hard or soft reset across the whole tree.
-
 use git2::{Repository, ResetType};
 
 use crate::RepoTree;
-use crate::cmd::command::{Cmd, Context};
+use crate::cli::command::{Cmd, Context};
 use crate::error::Result;
 use crate::git::resolve_revision;
 

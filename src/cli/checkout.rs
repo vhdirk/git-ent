@@ -1,8 +1,6 @@
-//! `sgit checkout` - checkout branches recursively across all repos.
-
 use crate::RepoTree;
-use crate::cmd::command::{Cmd, Context};
-use crate::error::{Result, SgitError};
+use crate::cli::command::{Cmd, Context};
+use crate::error::{GitNestError, Result};
 use clap::Args;
 use git2::{BranchType, ErrorCode, Repository, build::CheckoutBuilder};
 use std::path::Path;
@@ -32,21 +30,22 @@ impl Cmd for CheckoutCmd {
     fn run(&self, ctx: &Context) -> Result<()> {
         if !self.paths.is_empty() {
             if self.create.is_some() {
-                return Err(SgitError::InvalidUsage(
-                    "usage: sgit checkout <branch> -- <files...> (cannot combine with -b)".into(),
+                return Err(GitNestError::InvalidUsage(
+                    "usage: git-nest checkout <branch> -- <files...> (cannot combine with -b)"
+                        .into(),
                 ));
             }
             let Some(name) = &self.branch else {
-                return Err(SgitError::InvalidUsage(
-                    "usage: sgit checkout <branch> -- <files...>".into(),
+                return Err(GitNestError::InvalidUsage(
+                    "usage: git-nest checkout <branch> -- <files...>".into(),
                 ));
             };
             return checkout_paths_from_branch(ctx.workdir.as_deref(), name, &self.paths);
         }
 
         let Some(name) = self.create.as_deref().or(self.branch.as_deref()) else {
-            return Err(SgitError::InvalidUsage(
-                "usage: sgit checkout <branch> | sgit checkout -b <branch> | sgit checkout <branch> -- <files...>".into(),
+            return Err(GitNestError::InvalidUsage(
+                "usage: git-nest checkout <branch> | git-nest checkout -b <branch> | git-nest checkout <branch> -- <files...>".into(),
             ));
         };
 
@@ -131,7 +130,7 @@ fn checkout_path_from_branch(
     let commit = br.get().peel_to_commit()?;
     let tree = commit.tree()?;
     tree.get_path(rel).map_err(|_| {
-        SgitError::Other(format!(
+        GitNestError::Other(format!(
             "path '{}' does not exist on branch '{branch}'",
             rel.display()
         ))

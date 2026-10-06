@@ -1,19 +1,19 @@
 [package]
-name = "sgit"
-version = "0.2.0"
+name = "git-nest"
+version = "0.0.1"
 edition = "2021"
 authors = ["Dirk Van Haerenborgh <vhdirk@gmail.com>"]
 description = "manage projects with (nested) git submodules"
 readme = "README.md"
 license = "MIT"
-repository = "https://github.com/vhdirk/sgit"
+repository = "https://github.com/vhdirk/git-nest"
 
 [lib]
-name = "sgit"
+name = "git_nest"
 path = "src/lib.rs"
 
 [[bin]]
-name = "sgit"
+name = "git-nest"
 path = "src/main.rs"
 
 [dependencies]

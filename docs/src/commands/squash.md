@@ -1,14 +1,14 @@
-# `sgit squash`
+# `git-nest squash`
 
 Squash all commits since the common ancestor with `<branch>`,
 recursively depth-first across submodules.
 
 ```bash
 # Default: message is built from squashed commit subjects
-sgit squash <branch>
+git-nest squash <branch>
 
 # Custom message
-sgit squash <branch> -m "Squashed feature work"
+git-nest squash <branch> -m "Squashed feature work"
 ```
 
 | Flag              | Description                                                    |
@@ -25,7 +25,7 @@ every level of the (sub)module tree:
    staged; the working tree is untouched.
 4. Because deeper submodules were squashed first, their HEAD has
    already moved. Their parent's submodule-pointer entry is now dirty
-   - sgit stages it before committing.
+   - git-nest stages it before committing.
 5. Create a single new commit. If `-m` was not given, the message is
    built from the subjects of the squashed commits (newest last, in
    original chronological order).
@@ -47,13 +47,13 @@ root (3 commits)                    root (1 squash commit)
 └── sub-b (5 commits)               └── sub-b (1 squash commit)
 ```
 
-After `sgit squash main`, every repo has exactly one new commit
+After `git-nest squash main`, every repo has exactly one new commit
 replacing the work that diverged from `main`, and the parent's
 submodule pointers correctly record the newly-squashed children.
 
 ## Skipping rules
 
 - HEAD is detached --> skip.
-- `<branch>` doesn't exist in the repo --> skip (matches `sgit merge`).
+- `<branch>` doesn't exist in the repo --> skip (matches `git-nest merge`).
 - Already on `<branch>` --> skip (nothing sensible to do).
 - No commits to squash and no submodule pointer change --> skip.

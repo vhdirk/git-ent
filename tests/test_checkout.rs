@@ -1,7 +1,5 @@
-//! Tests for `sgit checkout`.
-
 mod common;
-use sgit::cmd::{branch::BranchCmd, checkout::CheckoutCmd};
+use git_nest::cli::{branch::BranchCmd, checkout::CheckoutCmd};
 
 #[test]
 /// Test case for checkout existing branch across submodules.

@@ -1,13 +1,11 @@
-//! `sgit status` - consolidated recursive status view.
-
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use colored::Colorize;
 
 use crate::RepoTree;
-use crate::cmd::command::{Cmd, Context};
+use crate::cli::command::{Cmd, Context};
 use crate::error::Result;
-use crate::repo_tree::{ChangeKind, prefix_path};
+use crate::repo_tree::prefix_path;
 use clap::Args;
 
 /// Show status recursively across all submodules.
@@ -32,7 +30,7 @@ impl Cmd for StatusCmd {
 
         if !status.staged.is_empty() {
             println!("\nChanges to be committed:");
-            println!("  (use \"sgit restore --staged <file>...\" to unstage)");
+            println!("  (use \"git-nest restore --staged <file>...\" to unstage)");
             for s in &status.staged {
                 println!(
                     "\t{}",
@@ -48,8 +46,10 @@ impl Cmd for StatusCmd {
 
         if !status.unstaged.is_empty() {
             println!("\nChanges not staged for commit:");
-            println!("  (use \"sgit add <file>...\" to update what will be committed)");
-            println!("  (use \"sgit restore <file>...\" to discard changes in working directory)");
+            println!("  (use \"git-nest add <file>...\" to update what will be committed)");
+            println!(
+                "  (use \"git-nest restore <file>...\" to discard changes in working directory)"
+            );
             for s in &status.unstaged {
                 println!(
                     "\t{}",
@@ -65,7 +65,7 @@ impl Cmd for StatusCmd {
 
         if !status.untracked.is_empty() {
             println!("\nUntracked files:");
-            println!("  (use \"sgit add <file>...\" to include in what will be committed)");
+            println!("  (use \"git-nest add <file>...\" to include in what will be committed)");
             for s in &status.untracked {
                 println!("\t{}", prefix_path(&PathBuf::from("."), &s.path).red());
             }
