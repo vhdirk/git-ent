@@ -24,7 +24,7 @@ impl Cmd for CloneCmd {
 
         println!(
             "Cloning {} into {} (recursive)...",
-            &self.url,
+            self.url,
             dest.display()
         );
         let mut fetch = FetchOptions::new();
