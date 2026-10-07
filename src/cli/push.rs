@@ -48,7 +48,7 @@ impl Cmd for PushCmd {
         let tree = RepoTree::discover(None)?;
         for r in tree.all() {
             let label = r.label();
-            match push_one(r, &opts) {
+            match push_one(r, &opts, self) {
                 Ok(Some(res)) => {
                     println!("[{label}] Pushed {} commit(s)", res.ahead);
                     for notice in res.notices {
@@ -70,7 +70,7 @@ struct PushResult {
 
 /// Push the current branch. Returns `Some(n)` if `n > 0` commits were
 /// pushed, `None` if nothing needed pushing / no remote / detached HEAD.
-fn push_one(r: &Repo, push_options: &[&str]) -> Result<Option<PushResult>> {
+fn push_one(r: &Repo, push_options: &[&str], args: &PushCmd) -> Result<Option<PushResult>> {
     let repo = &r.repo;
 
     // Detached HEAD --> nothing to push.
@@ -121,6 +121,12 @@ fn push_one(r: &Repo, push_options: &[&str]) -> Result<Option<PushResult>> {
     });
 
     callbacks.credentials(|url, username_from_url, allowed| {
+        dbg!(
+            "credentials callback called with url: {}, username_from_url: {:?}, allowed: {:?}",
+            url,
+            username_from_url,
+            allowed
+        );
         // SSH: auth via agent or standard key files (~/.ssh/id_*)
         // libgit2 requires a callback for SSH; this callback follows standard SSH behavior.
         if allowed.contains(CredentialType::SSH_KEY) {
@@ -170,9 +176,11 @@ fn push_one(r: &Repo, push_options: &[&str]) -> Result<Option<PushResult>> {
         .unwrap_or_default();
 
     // Ensure upstream tracking is set.
-    if let Ok(mut br) = repo.find_branch(&branch_name, BranchType::Local) {
-        let upstream = format!("{remote_name}/{branch_name}");
-        let _ = br.set_upstream(Some(&upstream));
+    if args.set_upstream {
+        if let Ok(mut br) = repo.find_branch(&branch_name, BranchType::Local) {
+            let upstream = format!("{remote_name}/{branch_name}");
+            let _ = br.set_upstream(Some(&upstream));
+        }
     }
 
     Ok(Some(PushResult { ahead, notices }))
