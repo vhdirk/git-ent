@@ -1,5 +1,5 @@
 mod common;
-use git_nest::cli::{branch::BranchCmd, checkout::CheckoutCmd};
+use git_ent::cli::{branch::BranchCmd, checkout::CheckoutCmd};
 
 #[test]
 /// Test case for checkout existing branch across submodules.

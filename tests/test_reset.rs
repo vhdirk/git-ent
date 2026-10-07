@@ -1,5 +1,5 @@
 mod common;
-use git_nest::cli::reset::ResetCmd;
+use git_ent::cli::reset::ResetCmd;
 
 #[test]
 /// Test case for reset unstages staged changes.

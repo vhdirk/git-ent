@@ -4,7 +4,7 @@ mod common;
 
 use std::path::{Path, PathBuf};
 
-use git_nest::RepoTree;
+use git_ent::RepoTree;
 
 /// Discover from `path` by setting cwd. Tests don't run in parallel
 /// within a binary by default, but each test-bin does - using explicit
@@ -93,7 +93,7 @@ fn nested_submodules_depth_first() {
 /// Root config can exclude a nested submodule via full path from root.
 fn root_config_excludes_nested_submodule_by_full_path() {
     let r = common::nested_submodules();
-    std::fs::write(r.main.join(".git-nest.toml"), "exclude = [\"mid/leaf\"]\n").unwrap();
+    std::fs::write(r.main.join(".git-ent.toml"), "exclude = [\"mid/leaf\"]\n").unwrap();
 
     let tree = tree_at(&r.main);
     let names: Vec<String> = tree
@@ -115,7 +115,7 @@ fn root_config_excludes_nested_submodule_by_full_path() {
 /// Submodule config can exclude nested submodules via paths from submodule root.
 fn submodule_config_excludes_nested_submodule_by_full_path() {
     let r = common::nested_submodules();
-    std::fs::write(r.main.join("mid/.git-nest.toml"), "exclude = [\"leaf\"]\n").unwrap();
+    std::fs::write(r.main.join("mid/.git-ent.toml"), "exclude = [\"leaf\"]\n").unwrap();
 
     let tree = tree_at(&r.main);
     let names: Vec<String> = tree

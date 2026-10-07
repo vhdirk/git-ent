@@ -1,5 +1,5 @@
 mod common;
-use git_nest::cli::restore::RestoreCmd;
+use git_ent::cli::restore::RestoreCmd;
 
 #[test]
 /// Test case for restore single file.

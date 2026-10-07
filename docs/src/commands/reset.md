@@ -1,18 +1,18 @@
-# `git-nest reset`
+# `git-ent reset`
 
 Reset HEAD across all repos recursively.
 
 ```bash
 # Unstage all staged changes (mixed reset)
-git-nest reset
+git-ent reset
 
 # Hard reset to HEAD - discard all changes
-git-nest reset --hard
+git-ent reset --hard
 
 # Hard reset to a specific ref
-git-nest reset --hard HEAD~1
-git-nest reset --hard <commit-sha>
-git-nest reset --hard origin/main
+git-ent reset --hard HEAD~1
+git-ent reset --hard <commit-sha>
+git-ent reset --hard origin/main
 ```
 
 | Flag / Arg | Description                                                                                   |

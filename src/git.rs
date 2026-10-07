@@ -1,6 +1,6 @@
 use git2::{Commit, ObjectType, Oid, Remote, Repository, Signature};
 
-use crate::error::{GitNestError, Result};
+use crate::error::{GitEntError, Result};
 
 /// Build a [`Signature`] for `repo`.
 ///
@@ -46,5 +46,5 @@ pub fn first_remote(repo: &Repository) -> Option<String> {
 /// Find a remote by name.
 pub fn find_remote<'a>(repo: &'a Repository, name: &str) -> Result<Remote<'a>> {
     repo.find_remote(name)
-        .map_err(|e| GitNestError::Other(format!("remote '{name}' not found: {e}")))
+        .map_err(|e| GitEntError::Other(format!("remote '{name}' not found: {e}")))
 }

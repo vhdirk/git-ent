@@ -1,5 +1,5 @@
 mod common;
-use git_nest::cli::add::AddCmd;
+use git_ent::cli::add::AddCmd;
 
 #[test]
 /// Test case for add single file.

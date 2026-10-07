@@ -1,6 +1,6 @@
 mod common;
 
-use git_nest::cli::update::UpdateCmd;
+use git_ent::cli::update::UpdateCmd;
 use std::path::Path;
 
 #[test]

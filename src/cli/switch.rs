@@ -1,6 +1,6 @@
 use crate::RepoTree;
 use crate::cli::command::{Cmd, Context};
-use crate::error::{GitNestError, Result};
+use crate::error::{GitEntError, Result};
 use clap::Args;
 use git2::{BranchType, ErrorCode, Repository, build::CheckoutBuilder};
 
@@ -21,13 +21,13 @@ pub struct SwitchCmd {
 }
 
 impl Cmd for SwitchCmd {
-    fn run(&self, ctx: &Context) -> Result<()> {
-        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+    fn run(&self, _ctx: &Context) -> Result<()> {
+        let tree = RepoTree::discover(None)?;
 
         if self.detach {
             let Some(target) = self.target.as_deref() else {
-                return Err(GitNestError::InvalidUsage(
-                    "usage: git-nest switch --detach <commit-ish>".into(),
+                return Err(GitEntError::InvalidUsage(
+                    "usage: git-ent switch --detach <commit-ish>".into(),
                 ));
             };
             for r in tree.all() {
@@ -73,8 +73,8 @@ impl Cmd for SwitchCmd {
         }
 
         let Some(branch) = self.target.as_deref() else {
-            return Err(GitNestError::InvalidUsage(
-            "usage: git-nest switch <branch> | git-nest switch -c <new-branch> [<start-point>] | git-nest switch -C <branch> [<start-point>] | git-nest switch --detach <commit-ish>".into(),
+            return Err(GitEntError::InvalidUsage(
+            "usage: git-ent switch <branch> | git-ent switch -c <new-branch> [<start-point>] | git-ent switch -C <branch> [<start-point>] | git-ent switch --detach <commit-ish>".into(),
         ));
         };
 
@@ -111,7 +111,7 @@ fn switch_existing(repo: &Repository, branch: &str) -> Result<SwitchOutcome> {
         Err(e) => return Err(e.into()),
     };
 
-    let refname = br.get().name().map_err(GitNestError::from)?;
+    let refname = br.get().name().map_err(GitEntError::from)?;
     repo.set_head(refname)?;
     let mut co = CheckoutBuilder::new();
     repo.checkout_head(Some(&mut co))?;
@@ -143,7 +143,7 @@ fn create_and_switch(
             repo.checkout_head(Some(&mut co))?;
             Ok(SwitchOutcome::CreatedAndSwitched)
         }
-        Err(e) if !force && e.code() == ErrorCode::Exists => Err(GitNestError::Other(format!(
+        Err(e) if !force && e.code() == ErrorCode::Exists => Err(GitEntError::Other(format!(
             "branch '{name}' already exists"
         ))),
         Err(e) => Err(e.into()),

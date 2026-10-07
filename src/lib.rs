@@ -1,4 +1,4 @@
-//! git_nest library: the recursive-submodule-git tool.
+//! git_ent library: the recursive-submodule-git tool.
 //!
 //! The public surface consists of:
 //! - [`RepoTree`] - the core abstraction modelling a top-level repo and
@@ -7,7 +7,7 @@
 //!   functions in [`commands`].
 //! - [`commands`] - one module per subcommand (`clone`, `status`, `add`,
 //!   `commit`, `push`, `squash`, …).
-//! - [`GitNestError`] - the crate-wide error type.
+//! - [`GitEntError`] - the crate-wide error type.
 
 pub mod cli;
 pub mod config;
@@ -16,5 +16,5 @@ pub mod git;
 pub mod repo;
 pub mod repo_tree;
 
-pub use error::{GitNestError, Result};
+pub use error::{GitEntError, Result};
 pub use repo_tree::RepoTree;

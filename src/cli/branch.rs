@@ -17,8 +17,8 @@ impl Cmd for BranchCmd {
     /// List local branches or create one branch across all repos.
     ///
     /// - `create`: optional branch name; `None` lists branches, `Some(name)` creates it.
-    fn run(&self, ctx: &Context) -> Result<()> {
-        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+    fn run(&self, _ctx: &Context) -> Result<()> {
+        let tree = RepoTree::discover(None)?;
 
         let Some(name) = self.create.as_ref() else {
             for r in tree.all() {

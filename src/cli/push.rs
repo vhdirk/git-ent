@@ -11,19 +11,41 @@ use std::sync::{Arc, Mutex};
 /// Push to remote across all repos that have commits to push.
 #[derive(Default, Debug, Args)]
 pub struct PushCmd {
+    #[arg(short = 'f', long = "force")]
+    pub force: bool,
+
+    #[arg(short = 'd', long = "delete")]
+    pub delete: bool,
+
+    #[arg(long = "prune")]
+    pub prune: bool,
+
+    #[arg(short = 'q', long = "quiet")]
+    pub quiet: bool,
+
+    #[arg(short = 'u', long = "set-upstream")]
+    pub set_upstream: bool,
+
+    /// Push tags as well.
+    #[arg(long = "tags")]
+    pub tags: bool,
+
     /// Push options (`-o`). Can be specified multiple times.
     #[arg(short = 'o', long = "push-option")]
     pub option: Vec<String>,
+
+    #[arg(long = "no-verify")]
+    pub no_verify: bool,
 }
 
 impl Cmd for PushCmd {
     /// Iterate the repo tree and push each eligible repo.
     ///
     /// - `push_options`: push options forwarded to each remote push call.
-    fn run(&self, ctx: &Context) -> Result<()> {
+    fn run(&self, _ctx: &Context) -> Result<()> {
         let opts: Vec<&str> = self.option.iter().map(String::as_str).collect();
 
-        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+        let tree = RepoTree::discover(None)?;
         for r in tree.all() {
             let label = r.label();
             match push_one(r, &opts) {
