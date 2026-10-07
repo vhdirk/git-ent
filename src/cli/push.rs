@@ -3,9 +3,9 @@ use crate::cli::command::{Cmd, Context};
 use crate::error::Result;
 use crate::git::first_remote;
 use crate::repo::Repo;
+use auth_git2::GitAuthenticator;
 use clap::Args;
-use git2::{BranchType, Cred, CredentialType, PushOptions, RemoteCallbacks, Repository};
-use std::path::PathBuf;
+use git2::{BranchType, PushOptions, RemoteCallbacks, Repository};
 use std::sync::{Arc, Mutex};
 
 /// Push to remote across all repos that have commits to push.
@@ -100,6 +100,9 @@ fn push_one(r: &Repo, push_options: &[&str], args: &PushCmd) -> Result<Option<Pu
 
     let mut remote = repo.find_remote(&remote_name)?;
 
+    let auth = GitAuthenticator::default();
+    let config = repo.config()?;
+
     let sideband_lines = Arc::new(Mutex::new(Vec::<String>::new()));
     let sideband_capture = Arc::clone(&sideband_lines);
 
@@ -120,46 +123,7 @@ fn push_one(r: &Repo, push_options: &[&str], args: &PushCmd) -> Result<Option<Pu
         true
     });
 
-    callbacks.credentials(|url, username_from_url, allowed| {
-        log::debug!(
-            "credentials callback called with url: {}, username_from_url: {:?}, allowed: {:?}",
-            url,
-            username_from_url,
-            allowed
-        );
-        // SSH: auth via agent or standard key files (~/.ssh/id_*)
-        // libgit2 requires a callback for SSH; this callback follows standard SSH behavior.
-        if allowed.contains(CredentialType::SSH_KEY) {
-            let user = username_from_url.unwrap_or("git");
-            // Try SSH agent first
-            if let Ok(cred) = Cred::ssh_key_from_agent(user) {
-                return Ok(cred);
-            }
-            // Fallback: try standard SSH key locations (matches OpenSSH's default search)
-            for key_name in &["id_ed25519", "id_rsa", "id_ecdsa"] {
-                let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-                let key_path = PathBuf::from(format!("{}/.ssh/{}", home, key_name));
-                if key_path.exists() {
-                    if let Ok(cred) = Cred::ssh_key(user, None, &key_path, None) {
-                        return Ok(cred);
-                    }
-                }
-            }
-        }
-        // HTTPS: use credential.helper
-        if allowed.contains(CredentialType::USER_PASS_PLAINTEXT) {
-            if let Ok(cfg) = repo.config() {
-                if let Ok(cred) = Cred::credential_helper(&cfg, url, username_from_url) {
-                    return Ok(cred);
-                }
-            }
-        }
-        // Username-only
-        if allowed.contains(CredentialType::USERNAME) {
-            return Cred::username(username_from_url.unwrap_or("git"));
-        }
-        Cred::default()
-    });
+    callbacks.credentials(auth.credentials(&config));
 
     let mut push_opts = PushOptions::new();
     push_opts.remote_callbacks(callbacks);
@@ -223,40 +187,15 @@ fn commits_ahead(repo: &Repository, branch: &str, remote: &str) -> Result<usize>
 }
 
 /// Shared credentials callback factory for clone/update.
-/// libgit2 requires a callback for SSH to work; this implementation follows standard SSH behavior.
 pub fn remote_callbacks<'a>() -> RemoteCallbacks<'a> {
     let mut cb = RemoteCallbacks::new();
-    cb.credentials(|_url, username_from_url, allowed| {
-        // SSH: try agent then standard key locations
-        if allowed.contains(CredentialType::SSH_KEY) {
-            let user = username_from_url.unwrap_or("git");
-            if let Ok(cred) = Cred::ssh_key_from_agent(user) {
-                return Ok(cred);
-            }
-            for key_name in &["id_ed25519", "id_rsa", "id_ecdsa"] {
-                let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-                let key_path = PathBuf::from(format!("{}/.ssh/{}", home, key_name));
-                if key_path.exists() {
-                    if let Ok(cred) = Cred::ssh_key(user, None, &key_path, None) {
-                        return Ok(cred);
-                    }
-                }
-            }
-        }
-        // HTTPS: use credential.helper
-        if allowed.contains(CredentialType::USER_PASS_PLAINTEXT) {
-            if let Ok(repo) = Repository::open(".") {
-                if let Ok(cfg) = repo.config() {
-                    if let Ok(cred) = Cred::credential_helper(&cfg, _url, username_from_url) {
-                        return Ok(cred);
-                    }
-                }
-            }
-        }
-        if allowed.contains(CredentialType::USERNAME) {
-            return Cred::username(username_from_url.unwrap_or("git"));
-        }
-        Cred::default()
-    });
+    let auth = Box::leak(Box::new(GitAuthenticator::default()));
+    let config = Box::leak(Box::new(
+        Repository::open(".")
+            .and_then(|r| r.config())
+            .or_else(|_| git2::Config::open_default())
+            .unwrap_or_else(|_| git2::Config::new().unwrap()),
+    ));
+    cb.credentials(auth.credentials(config));
     cb
 }
