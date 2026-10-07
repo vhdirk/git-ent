@@ -54,6 +54,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo install cargo-tarpaulin --locked
+      - run: git config --global user.email "you@example.com" && git config --global user.name "Your Name"
       - run: cargo tarpaulin --all-targets --out xml
       - uses: actions/upload-artifact@v4
         with:
