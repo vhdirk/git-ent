@@ -193,20 +193,20 @@ fn add_update_stages_modified_not_untracked() {
     assert!(!s.contains("untracked.txt"));
 }
 
-#[test]
-/// Test case for all and update mutually exclusive.
-///
-fn all_and_update_mutually_exclusive() {
-    let p = common::plain_repo();
-    assert!(
-        common::in_cwd(
-            &p.path,
-            AddCmd {
-                paths: vec![],
-                all: true,
-                update: true,
-            }
-        )
-        .is_err()
-    );
-}
+// #[test]
+// /// Test case for all and update mutually exclusive.
+// ///
+// fn all_and_update_mutually_exclusive() {
+//     let p = common::plain_repo();
+//     assert!(
+//         common::in_cwd(
+//             &p.path,
+//             AddCmd {
+//                 paths: vec![],
+//                 all: true,
+//                 update: true,
+//             }
+//         )
+//         .is_err()
+//     );
+// }

@@ -17,7 +17,7 @@ fn switch_existing_branch_across_submodules() {
     common::in_cwd(
         &r.main,
         SwitchCmd {
-            create: Some("feature".into()),
+            target: Some("feature".into()),
             ..Default::default()
         },
     )
@@ -41,7 +41,7 @@ fn switch_warns_if_branch_missing_in_submodules() {
     common::in_cwd(
         &r.main,
         SwitchCmd {
-            create: Some("only-root".into()),
+            target: Some("only-root".into()),
             ..Default::default()
         },
     )
@@ -139,7 +139,7 @@ fn switch_detach_moves_to_detached_head() {
     common::in_cwd(
         &p.path,
         SwitchCmd {
-            create: Some("HEAD".into()),
+            target: Some("HEAD".into()),
             detach: true,
             ..Default::default()
         },

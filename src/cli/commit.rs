@@ -80,6 +80,10 @@ impl Cmd for CommitCmd {
             }
         }
 
+        if let Some(err) = hook_error {
+            return Err(err);
+        }
+
         if !committed_any {
             println!("Nothing to commit.");
         }
