@@ -18,9 +18,9 @@ pub struct ResetCmd {
 }
 
 impl Cmd for ResetCmd {
-    fn run(&self, ctx: &Context) -> Result<()> {
+    fn run(&self, _ctx: &Context) -> Result<()> {
         let target = self.target_ref.as_deref().unwrap_or("HEAD");
-        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+        let tree = RepoTree::discover(None)?;
 
         for r in tree.all() {
             let label = r.label();

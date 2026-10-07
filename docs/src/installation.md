@@ -6,13 +6,13 @@
 cargo install --path .
 ```
 
-The binary is named `git-nest` and is placed in `$CARGO_HOME/bin`
+The binary is named `git-ent` and is placed in `$CARGO_HOME/bin`
 (usually `~/.cargo/bin`).
 
 ## Requirements
 
 - Rust 1.80+ (stable).
-- A system `git` binary (git-nest shells out for write operations).
+- A system `git` binary (git-ent shells out for write operations).
 - A C compiler and `pkg-config` (needed by `libgit2-sys`).
 
 On NixOS / with [direnv](https://direnv.net), the supplied

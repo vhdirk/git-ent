@@ -24,8 +24,8 @@ impl Cmd for RestoreCmd {
     ///
     /// - `filenames`: optional explicit files; empty means operate on all changed files.
     /// - `staged`: when `true`, unstage (`--staged` behavior) instead of restore.
-    fn run(&self, ctx: &Context) -> Result<()> {
-        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+    fn run(&self, _ctx: &Context) -> Result<()> {
+        let tree = RepoTree::discover(None)?;
 
         if !self.paths.is_empty() {
             for filename in &self.paths {

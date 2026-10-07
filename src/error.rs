@@ -2,9 +2,9 @@ use std::path::PathBuf;
 
 use thiserror::Error;
 
-/// The git-nest error type.
+/// The git-ent error type.
 #[derive(Debug, Error)]
-pub enum GitNestError {
+pub enum GitEntError {
     /// A libgit2 call failed.
     #[error("git2: {0}")]
     Git2(#[from] git2::Error),
@@ -43,4 +43,4 @@ pub enum GitNestError {
 }
 
 /// The crate's [`Result`](std::result::Result) alias.
-pub type Result<T> = std::result::Result<T, GitNestError>;
+pub type Result<T> = std::result::Result<T, GitEntError>;

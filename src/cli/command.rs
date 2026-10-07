@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 #[derive(Debug, Clone, Default)]
 pub struct Context {
-    pub workdir: Option<PathBuf>,
+    // reserved for future context fields
 }
 
 impl Context {}

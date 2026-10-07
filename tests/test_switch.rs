@@ -1,5 +1,5 @@
 mod common;
-use git_nest::cli::{branch::BranchCmd, switch::SwitchCmd};
+use git_ent::cli::{branch::BranchCmd, switch::SwitchCmd};
 
 #[test]
 /// Test case for switch existing branch across submodules.

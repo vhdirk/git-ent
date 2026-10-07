@@ -13,8 +13,8 @@ use clap::Args;
 pub struct StatusCmd;
 
 impl Cmd for StatusCmd {
-    fn run(&self, ctx: &Context) -> Result<()> {
-        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+    fn run(&self, _ctx: &Context) -> Result<()> {
+        let tree = RepoTree::discover(None)?;
 
         let status = tree.status()?;
 

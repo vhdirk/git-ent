@@ -1,15 +1,15 @@
-//! `git-nest merge <branch>` - recursive merge, depth-first.
+//! `git-ent merge <branch>` - recursive merge, depth-first.
 //!
 //! For each (sub)module, merge `<branch>` into the current branch using
 //! libgit2's merge machinery:
 //!
 //! - fast-forward when possible,
 //! - proper merge-commit otherwise,
-//! - conflict --> abort with a helpful [`GitNestError::Conflict`].
+//! - conflict --> abort with a helpful [`GitEntError::Conflict`].
 //!
 //! When a submodule's HEAD advances as a result of the merge, the parent
 //! repo automatically records the moved submodule pointer in a follow-up
-//! commit (matching git-nest's commit-time behaviour).
+//! commit (matching git-ent's commit-time behaviour).
 
 use clap::Args;
 use git2::{
@@ -18,7 +18,7 @@ use git2::{
 
 use crate::RepoTree;
 use crate::cli::command::{Cmd, Context};
-use crate::error::{GitNestError, Result};
+use crate::error::{GitEntError, Result};
 use crate::git::{head_commit, signature};
 use crate::repo::Repo;
 use crate::repo_tree::changed_submodule_paths;
@@ -31,12 +31,12 @@ pub struct MergeCmd {
 }
 
 impl Cmd for MergeCmd {
-    fn run(&self, ctx: &Context) -> Result<()> {
-        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+    fn run(&self, _ctx: &Context) -> Result<()> {
+        let tree = RepoTree::discover(None)?;
 
         for r in tree.all() {
             let label = r.label();
-            if !has_branch(&r.repo, &self.branch) {
+            if !r.has_branch(&self.branch) {
                 println!(
                     "[{label}] Skipping: branch '{}' does not exist",
                     &self.branch
@@ -58,14 +58,6 @@ impl Cmd for MergeCmd {
     }
 }
 
-/// Check whether `branch` exists as a local branch in `repo`.
-///
-/// - `repo`: repository to inspect.
-/// - `branch`: local branch name to look up.
-fn has_branch(repo: &Repository, branch: &str) -> bool {
-    repo.find_branch(branch, BranchType::Local).is_ok()
-}
-
 /// Merge one repository with fast-forward or merge-commit behavior.
 ///
 /// - `r`: repository handle used for merge and conflict reporting.
@@ -76,7 +68,7 @@ fn merge_one(r: &Repo, branch: &str) -> Result<()> {
     let target_oid = br
         .get()
         .target()
-        .ok_or_else(|| GitNestError::Other(format!("branch '{branch}' has no target")))?;
+        .ok_or_else(|| GitEntError::Other(format!("branch '{branch}' has no target")))?;
 
     let annotated: AnnotatedCommit = repo.find_annotated_commit(target_oid)?;
     let (analysis, _pref) = repo.merge_analysis(&[&annotated])?;
@@ -87,7 +79,7 @@ fn merge_one(r: &Repo, branch: &str) -> Result<()> {
 
     // Figure out the current branch name (refname).
     let head_ref = repo.head()?;
-    let refname = head_ref.name().map_err(GitNestError::from)?.to_string();
+    let refname = head_ref.name().map_err(GitEntError::from)?.to_string();
 
     if analysis.is_fast_forward() {
         let mut reference = repo.find_reference(&refname)?;
@@ -111,7 +103,7 @@ fn merge_one(r: &Repo, branch: &str) -> Result<()> {
         let head = head_commit(repo)?;
         repo.reset(head.as_object(), ResetType::Hard, None)?;
         repo.cleanup_state()?;
-        return Err(GitNestError::Conflict {
+        return Err(GitEntError::Conflict {
             repo: r.display_label(),
             workdir: r.workdir.clone(),
             hint: format!("git merge {branch}"),

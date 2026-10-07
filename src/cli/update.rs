@@ -12,8 +12,8 @@ pub struct UpdateCmd;
 
 impl Cmd for UpdateCmd {
     /// Initialize and update all submodules recursively for the root repo.
-    fn run(&self, ctx: &Context) -> Result<()> {
-        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+    fn run(&self, _ctx: &Context) -> Result<()> {
+        let tree = RepoTree::discover(None)?;
         let label = tree.root.label();
         match update_recursive(&tree.root.repo) {
             Ok(()) => println!("[{label}] Submodules updated (init + recursive)"),

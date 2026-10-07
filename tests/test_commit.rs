@@ -1,5 +1,5 @@
 mod common;
-use git_nest::cli::{add::AddCmd, commit::CommitCmd};
+use git_ent::cli::{add::AddCmd, commit::CommitCmd};
 
 #[test]
 /// Test case for commit staged changes.

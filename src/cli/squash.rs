@@ -7,7 +7,7 @@ use git2::{BranchType, Oid, Repository, ResetType};
 use crate::RepoTree;
 use crate::cli::command::{Cmd, Context};
 use crate::cli::reset::reset_to;
-use crate::error::{GitNestError, Result};
+use crate::error::{GitEntError, Result};
 use crate::git::signature;
 use crate::repo::Repo;
 use crate::repo_tree::changed_submodule_paths;
@@ -33,8 +33,8 @@ impl Cmd for SquashCmd {
     ///
     /// - `branch`: target branch used to compute merge-base.
     /// - `message`: optional explicit squash commit message.
-    fn run(&self, ctx: &Context) -> Result<()> {
-        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+    fn run(&self, _ctx: &Context) -> Result<()> {
+        let tree = RepoTree::discover(None)?;
 
         for r in tree.all() {
             let label = r.label();
@@ -94,12 +94,12 @@ fn squash_one(r: &Repo, branch: &str, message: Option<&str>) -> Result<SquashOut
 
     let head_oid = head_ref
         .target()
-        .ok_or_else(|| GitNestError::Other("HEAD has no target".into()))?;
+        .ok_or_else(|| GitEntError::Other("HEAD has no target".into()))?;
     let branch_oid = repo
         .find_branch(branch, BranchType::Local)?
         .get()
         .target()
-        .ok_or_else(|| GitNestError::Other(format!("branch '{branch}' has no target")))?;
+        .ok_or_else(|| GitEntError::Other(format!("branch '{branch}' has no target")))?;
 
     // Find merge-base.
     let base: Oid = match repo.merge_base(head_oid, branch_oid) {

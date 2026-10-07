@@ -1,14 +1,14 @@
-# `git-nest branch`
+# `git-ent branch`
 
 List or create branches across the top-level project and every
 submodule.
 
 ```bash
 # List branches in all repos
-git-nest branch
+git-ent branch
 
 # Create a branch everywhere
-git-nest branch -c <branch-name>
+git-ent branch -c <branch-name>
 ```
 
 | Flag             | Description                                 |

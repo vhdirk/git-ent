@@ -2,11 +2,11 @@
 authors = ["Dirk Van Haerenborgh"]
 language = "en"
 src = "src"
-title = "git-nest"
+title = "git-ent"
 description = "Manage projects with (nested) git submodules"
 
 [output.html]
-git-repository-url = "https://github.com/vhdirk/git-nest"
+git-repository-url = "https://github.com/vhdirk/git-ent"
 default-theme = "ayu"
 preferred-dark-theme = "ayu"
 additional-css = []

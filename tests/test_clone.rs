@@ -1,6 +1,6 @@
 mod common;
 
-use git_nest::cli::clone::CloneCmd;
+use git_ent::cli::clone::CloneCmd;
 use std::path::Path;
 
 /// Test case for cloneable.

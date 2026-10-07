@@ -1,5 +1,5 @@
 mod common;
-use git_nest::cli::status::StatusCmd;
+use git_ent::cli::status::StatusCmd;
 
 #[test]
 /// Test case for clean repo prints nothing.

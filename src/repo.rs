@@ -1,11 +1,14 @@
-use crate::error::GitNestError;
+use crate::error::GitEntError;
 use crate::error::Result;
 use crate::git::{head_commit, signature};
 use crate::repo_tree::{ChangeKind, StatusEntry};
 use git2::StatusOptions;
 use git2::build::CheckoutBuilder;
 use git2::{BranchType, ErrorCode, IndexAddOption, Repository};
+use is_executable::IsExecutable;
+use std::io::Write;
 use std::path::{Path, PathBuf};
+use tempfile::NamedTempFile;
 
 #[derive(Debug, Clone, Default)]
 pub struct RepoStatus {
@@ -62,6 +65,13 @@ impl Repo {
         }
         let head = self.repo.head().ok()?;
         head.shorthand().ok().map(str::to_string)
+    }
+
+    /// Check whether `branch` exists as a local branch.
+    ///
+    /// - `branch`: local branch name to look up.
+    pub fn has_branch(&self, branch: &str) -> bool {
+        self.repo.find_branch(branch, BranchType::Local).is_ok()
     }
 
     /// Stage one path - add if it exists, remove if it was deleted.
@@ -220,7 +230,7 @@ impl Repo {
             Ok(b) => (b, false),
             Err(e) if e.code() == ErrorCode::NotFound => {
                 if !create {
-                    return Err(GitNestError::BranchNotFound(name.to_string()));
+                    return Err(GitEntError::BranchNotFound(name.to_string()));
                 }
                 let head = self.repo.head()?.peel_to_commit()?;
                 let branch = self.repo.branch(name, &head, false)?;
@@ -236,5 +246,67 @@ impl Repo {
         let mut co = CheckoutBuilder::new();
         self.repo.checkout_head(Some(&mut co))?;
         Ok(created)
+    }
+
+    pub fn hook_path(&self, name: &str) -> Result<PathBuf> {
+        let config = self.repo.config()?;
+        let hooks_dir = match config.get_path("core.hookspath") {
+            Ok(path) => path,
+            Err(error) if error.code() == git2::ErrorCode::NotFound => {
+                self.repo.path().join("hooks")
+            }
+            Err(error) => return Err(error.into()),
+        };
+        let hooks_dir = if hooks_dir.is_absolute() {
+            hooks_dir
+        } else {
+            self.repo
+                .workdir()
+                .unwrap_or(self.repo.path())
+                .join(hooks_dir)
+        };
+        Ok(hooks_dir.join(name))
+    }
+
+    pub fn run_hook(&self, name: &str, argument: Option<&Path>) -> Result<()> {
+        let path = self.hook_path(name)?;
+
+        // TODO: warning?
+        if !path.is_executable() {
+            return Ok(());
+        }
+
+        let workdir = self.repo.workdir().unwrap_or(self.repo.path());
+        let mut command = std::process::Command::new(path);
+        command
+            .current_dir(workdir)
+            .env("GIT_DIR", self.repo.path())
+            .env_remove("GIT_INDEX_FILE");
+        if self.repo.workdir().is_some() {
+            command.env("GIT_WORK_TREE", workdir);
+        } else {
+            command.env_remove("GIT_WORK_TREE");
+        }
+        if let Some(argument) = argument {
+            command.arg(argument);
+        }
+
+        let status = command.status()?;
+        if !status.success() {
+            return Err(crate::error::GitEntError::Other(format!(
+                "{name} hook failed with status {status}"
+            )));
+        }
+        Ok(())
+    }
+
+    pub fn run_commit_hooks(&self, message: &str) -> Result<String> {
+        self.run_hook("pre-commit", None)?;
+
+        let mut message_file = NamedTempFile::new()?;
+        message_file.write_all(message.as_bytes())?;
+        message_file.flush()?;
+        self.run_hook("commit-msg", Some(message_file.path()))?;
+        Ok(std::fs::read_to_string(message_file.path())?)
     }
 }

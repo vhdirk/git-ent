@@ -1,5 +1,5 @@
 mod common;
-use git_nest::cli::{branch::BranchCmd, merge::MergeCmd};
+use git_ent::cli::{branch::BranchCmd, merge::MergeCmd};
 
 #[test]
 /// Test case for merge branch.

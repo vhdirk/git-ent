@@ -1,15 +1,15 @@
-# `git-nest commit`
+# `git-ent commit`
 
 Commit across all (sub)modules that have staged changes.
 
 ```bash
-git-nest commit -m "message"
+git-ent commit -m "message"
 
 # Skip pre-commit and commit-msg hooks
-git-nest commit -m "message" --no-verify
+git-ent commit -m "message" --no-verify
 
 # No -m --> opens $EDITOR with a git-style template
-git-nest commit
+git-ent commit
 ```
 
 | Flag              | Description                           |
