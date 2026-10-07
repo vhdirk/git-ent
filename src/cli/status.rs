@@ -30,7 +30,7 @@ impl Cmd for StatusCmd {
 
         if !status.staged.is_empty() {
             println!("\nChanges to be committed:");
-            println!("  (use \"git-nest restore --staged <file>...\" to unstage)");
+            println!("  (use \"git ent restore --staged <file>...\" to unstage)");
             for s in &status.staged {
                 println!(
                     "\t{}",
@@ -46,9 +46,9 @@ impl Cmd for StatusCmd {
 
         if !status.unstaged.is_empty() {
             println!("\nChanges not staged for commit:");
-            println!("  (use \"git-nest add <file>...\" to update what will be committed)");
+            println!("  (use \"git ent add <file>...\" to update what will be committed)");
             println!(
-                "  (use \"git-nest restore <file>...\" to discard changes in working directory)"
+                "  (use \"git ent restore <file>...\" to discard changes in working directory)"
             );
             for s in &status.unstaged {
                 println!(
@@ -65,7 +65,7 @@ impl Cmd for StatusCmd {
 
         if !status.untracked.is_empty() {
             println!("\nUntracked files:");
-            println!("  (use \"git-nest add <file>...\" to include in what will be committed)");
+            println!("  (use \"git ent add <file>...\" to include in what will be committed)");
             for s in &status.untracked {
                 println!("\t{}", prefix_path(&PathBuf::from("."), &s.path).red());
             }

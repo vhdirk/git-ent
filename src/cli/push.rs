@@ -121,7 +121,7 @@ fn push_one(r: &Repo, push_options: &[&str], args: &PushCmd) -> Result<Option<Pu
     });
 
     callbacks.credentials(|url, username_from_url, allowed| {
-        dbg!(
+        log::debug!(
             "credentials callback called with url: {}, username_from_url: {:?}, allowed: {:?}",
             url,
             username_from_url,
