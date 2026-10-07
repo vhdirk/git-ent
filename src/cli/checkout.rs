@@ -46,12 +46,13 @@ impl Cmd for CheckoutCmd {
         let tree = RepoTree::discover(None)?;
         for r in tree.all() {
             let label = r.label();
-            let created = r.checkout(name, self.create.is_some())?;
-
-            if created {
-                println!("[{label}] Created and checked out '{name}'");
-            } else {
-                println!("[{label}] Checked out '{name}'");
+            match r.checkout(name, self.create.is_some()) {
+                Ok(true) => println!("[{label}] Created and checked out '{name}'"),
+                Ok(false) => println!("[{label}] Checked out '{name}'"),
+                Err(GitEntError::BranchNotFound(_)) => {
+                    eprintln!("[{label}] Warning: branch '{name}' does not exist");
+                }
+                Err(e) => return Err(e),
             }
         }
 

@@ -39,12 +39,12 @@ impl Cmd for MergeCmd {
             if !r.has_branch(&self.branch) {
                 println!(
                     "[{label}] Skipping: branch '{}' does not exist",
-                    &self.branch
+                    self.branch
                 );
                 continue;
             }
             match merge_one(r, &self.branch) {
-                Ok(()) => println!("[{label}] Merged '{}'", &self.branch),
+                Ok(()) => println!("[{label}] Merged '{}'", self.branch),
                 Err(e) => return Err(e),
             }
             if let Err(e) = record_submodule_updates(&r.repo) {

@@ -191,7 +191,6 @@ fn no_verify_bypasses_hooks() {
         CommitCmd {
             message: Some("bypass".into()),
             no_verify: true,
-            ..Default::default()
         },
     )
     .unwrap();

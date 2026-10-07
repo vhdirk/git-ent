@@ -75,7 +75,6 @@ fn squash_custom_message() {
         SquashCmd {
             branch: "main".into(),
             message: Some("my squash".into()),
-            ..Default::default()
         },
     )
     .unwrap();

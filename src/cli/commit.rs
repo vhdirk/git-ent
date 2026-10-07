@@ -1,12 +1,7 @@
-use std::io::Write;
-use std::path::{Path, PathBuf};
-use std::process::Command;
-
 use crate::RepoTree;
 use crate::cli::command::{Cmd, Context};
 use crate::error::{GitEntError, Result};
 use clap::Args;
-use tempfile::NamedTempFile;
 
 /// Commit across all (sub)modules that have staged changes.
 #[derive(Default, Debug, Args)]
@@ -83,6 +78,10 @@ impl Cmd for CommitCmd {
                 }
                 Err(e) => eprintln!("[{label}] Error committing: {e}"),
             }
+        }
+
+        if let Some(err) = hook_error {
+            return Err(err);
         }
 
         if !committed_any {

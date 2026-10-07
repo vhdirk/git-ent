@@ -16,7 +16,6 @@ fn merge_branch() {
         &p.path,
         MergeCmd {
             branch: "feature".into(),
-            ..Default::default()
         },
     )
     .unwrap();
@@ -32,7 +31,6 @@ fn merge_missing_branch_skips() {
         &p.path,
         MergeCmd {
             branch: "nonexistent".into(),
-            ..Default::default()
         },
     )
     .unwrap();
@@ -47,7 +45,6 @@ fn merge_across_submodules() {
         &r.main,
         BranchCmd {
             create: Some("feature".into()),
-            ..Default::default()
         },
     )
     .unwrap();
@@ -55,7 +52,6 @@ fn merge_across_submodules() {
         &r.main,
         MergeCmd {
             branch: "feature".into(),
-            ..Default::default()
         },
     )
     .unwrap();
@@ -108,7 +104,6 @@ fn merge_conflict_exits() {
             &p.path,
             MergeCmd {
                 branch: "other".into(),
-                ..Default::default()
             }
         )
         .is_err()

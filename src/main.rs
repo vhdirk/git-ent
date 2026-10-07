@@ -1,7 +1,5 @@
 use std::process::ExitCode;
 
-use std::path::PathBuf;
-
 use clap::{Parser, Subcommand};
 use git_ent::cli::add::AddCmd;
 use git_ent::cli::branch::BranchCmd;
@@ -47,6 +45,7 @@ pub enum CliCommand {
 
 /// Parse CLI args, run the selected command, and map errors to exit code 1.
 fn main() -> ExitCode {
+    env_logger::init();
     let cli = Cli::parse();
 
     let ctx = Context::default();

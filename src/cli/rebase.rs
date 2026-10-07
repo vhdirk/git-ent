@@ -25,12 +25,12 @@ impl Cmd for RebaseCmd {
             if repo_has_branch(&r.repo, &self.branch).is_err() {
                 println!(
                     "[{label}] Skipping: branch '{}'' does not exist",
-                    &self.branch
+                    self.branch
                 );
                 continue;
             }
             match rebase_one(r, &self.branch) {
-                Ok(()) => println!("[{label}] Rebased onto {}", &self.branch),
+                Ok(()) => println!("[{label}] Rebased onto {}", self.branch),
                 Err(e) => return Err(e),
             }
         }

@@ -51,10 +51,10 @@ impl Repo {
     /// Label suitable for `git status`-style output
     /// (`"(top-level)"` for the root).
     pub fn display_label(&self) -> String {
-        if self.prefix.is_none() {
-            "(top-level)".into()
+        if let Some(prefix) = &self.prefix {
+            prefix.to_string_lossy().into_owned()
         } else {
-            self.prefix.as_ref().unwrap().to_string_lossy().into_owned()
+            "(top-level)".into()
         }
     }
 
