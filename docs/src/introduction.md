@@ -1,9 +1,9 @@
 # Introduction
 
-**git-nest** is a tool to manage projects with (nested) git submodules.
+**git-ent** is a tool to manage projects with (nested) git submodules.
 
 The CLI mirrors familiar git subcommands but operates **recursively**
-across every submodule in the tree - so a single `git-nest commit -m "fix"`
+across every submodule in the tree - so a single `git-ent commit -m "fix"`
 creates a commit in every repo that has staged changes, then
 automatically updates the submodule pointers in parent repos.
 

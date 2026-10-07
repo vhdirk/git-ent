@@ -1,5 +1,5 @@
 mod common;
-use git_nest::cli::branch::BranchCmd;
+use git_ent::cli::branch::BranchCmd;
 
 #[test]
 /// Test case for creates branch in plain repo.

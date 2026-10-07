@@ -1,6 +1,6 @@
 use crate::RepoTree;
 use crate::cli::command::{Cmd, Context};
-use crate::error::{GitNestError, Result};
+use crate::error::{GitEntError, Result};
 use clap::Args;
 use git2::{BranchType, ErrorCode, Repository, build::CheckoutBuilder};
 use std::path::Path;
@@ -27,29 +27,23 @@ impl Cmd for CheckoutCmd {
     /// - `branch`: branch to switch to, or source branch for path checkout.
     /// - `create`: optional branch name to create (`-b`) before switching.
     /// - `paths`: optional files to checkout from `branch` when non-empty.
-    fn run(&self, ctx: &Context) -> Result<()> {
+    fn run(&self, _ctx: &Context) -> Result<()> {
         if !self.paths.is_empty() {
-            if self.create.is_some() {
-                return Err(GitNestError::InvalidUsage(
-                    "usage: git-nest checkout <branch> -- <files...> (cannot combine with -b)"
-                        .into(),
-                ));
-            }
             let Some(name) = &self.branch else {
-                return Err(GitNestError::InvalidUsage(
-                    "usage: git-nest checkout <branch> -- <files...>".into(),
+                return Err(GitEntError::InvalidUsage(
+                    "usage: git-ent checkout <branch> -- <files...>".into(),
                 ));
             };
-            return checkout_paths_from_branch(ctx.workdir.as_deref(), name, &self.paths);
+            return checkout_paths_from_branch(None, name, &self.paths);
         }
 
         let Some(name) = self.create.as_deref().or(self.branch.as_deref()) else {
-            return Err(GitNestError::InvalidUsage(
-                "usage: git-nest checkout <branch> | git-nest checkout -b <branch> | git-nest checkout <branch> -- <files...>".into(),
+            return Err(GitEntError::InvalidUsage(
+                "usage: git-ent checkout <branch> | git-ent checkout -b <branch> | git-ent checkout <branch> -- <files...>".into(),
             ));
         };
 
-        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+        let tree = RepoTree::discover(None)?;
         for r in tree.all() {
             let label = r.label();
             let created = r.checkout(name, self.create.is_some())?;
@@ -130,7 +124,7 @@ fn checkout_path_from_branch(
     let commit = br.get().peel_to_commit()?;
     let tree = commit.tree()?;
     tree.get_path(rel).map_err(|_| {
-        GitNestError::Other(format!(
+        GitEntError::Other(format!(
             "path '{}' does not exist on branch '{branch}'",
             rel.display()
         ))

@@ -1,5 +1,5 @@
 mod common;
-use git_nest::cli::{branch::BranchCmd, squash::SquashCmd};
+use git_ent::cli::{branch::BranchCmd, squash::SquashCmd};
 
 #[test]
 /// Test case for squash missing branch skips.

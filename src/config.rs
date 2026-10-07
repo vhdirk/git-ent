@@ -1,25 +1,25 @@
-//! git-nest configuration loading.
+//! git-ent configuration loading.
 //!
 //! Two config files are consulted for every repo in the tree, merged in order:
 //!
-//! 1. **Global** - `$XDG_CONFIG_HOME/git-nest/git-nest.toml` (typically
-//!    `~/.config/git-nest/git-nest.toml`). Exclusions here apply to every repo.
-//! 2. **Repo-local** - `.git-nest.toml` at the root of each individual repo.
+//! 1. **Global** - `$XDG_CONFIG_HOME/git-ent/git-ent.toml` (typically
+//!    `~/.config/git-ent/git-ent.toml`). Exclusions here apply to every repo.
+//! 2. **Repo-local** - `.git-ent.toml` at the root of each individual repo.
 //!    Exclusions here apply only to that repo's direct submodules.
 //!
-//! Example `.git-nest.toml` / `git-nest.toml`:
+//! Example `.git-ent.toml` / `git-ent.toml`:
 //! ```toml
 //! exclude = ["vendor/some-lib", "third_party/other"]
 //! ```
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
 
-pub const REPO_CONFIG_FILE: &str = ".git-nest.toml";
-pub const GLOBAL_CONFIG_DIR: &str = "git-nest";
-pub const GLOBAL_CONFIG_FILE: &str = "git-nest.toml";
-pub const GLOBAL_CONFIG_FILE_PATH: &str = "git-nest/git-nest.toml";
+pub const REPO_CONFIG_FILE: &str = ".git-ent.toml";
+pub const GLOBAL_CONFIG_DIR: &str = "git-ent";
+pub const GLOBAL_CONFIG_FILE: &str = "git-ent.toml";
+pub const GLOBAL_CONFIG_FILE_PATH: &str = "git-ent/git-ent.toml";
 
 /// Raw deserialization target - one source file.
 #[derive(Debug, Default, Deserialize)]
@@ -44,19 +44,19 @@ impl RawConfig {
     }
 }
 
-/// Merged git-nest configuration for a single repository.
+/// Merged git-ent configuration for a single repository.
 ///
-/// Built by combining the global config (XDG) with the repo-local `.git-nest.toml`.
+/// Built by combining the global config (XDG) with the repo-local `.git-ent.toml`.
 /// Exclusions from both sources are unioned.
 #[derive(Debug, Default)]
-pub struct GitNestConfig {
+pub struct GitEntConfig {
     /// Submodule paths (relative to this repo's workdir) to exclude from all
-    /// git-nest operations. Paths use forward slashes on all platforms.
+    /// git-ent operations. Paths use forward slashes on all platforms.
     pub exclude: Vec<String>,
 }
 
-impl GitNestConfig {
-    /// Load and merge the global config + `repo_workdir/.git-nest.toml`.
+impl GitEntConfig {
+    /// Load and merge the global config + `repo_workdir/.git-ent.toml`.
     pub fn load(repo_workdir: &Path) -> Self {
         Self::load_with_global(repo_workdir, global_config_path().as_deref())
     }
@@ -65,14 +65,12 @@ impl GitNestConfig {
     fn load_with_global(repo_workdir: &Path, global_path: Option<&Path>) -> Self {
         let mut exclude = Vec::new();
 
-        // 1. Global config
         if let Some(path) = global_path {
             if let Some(raw) = RawConfig::from_file(path) {
                 exclude.extend(raw.exclude);
             }
         }
 
-        // 2. Repo-local config (local aliases override global ones)
         let local_path = repo_workdir.join(REPO_CONFIG_FILE);
         if let Some(raw) = RawConfig::from_file(&local_path) {
             for entry in raw.exclude {
@@ -98,11 +96,11 @@ impl GitNestConfig {
 /// Walks up from `cwd` using libgit2 to find the outermost git repository,
 /// then loads its config (merged with the global config). Returns an empty
 /// config if no git repo is found or any I/O error occurs.
-pub fn load_root_config() -> GitNestConfig {
+pub fn load_root_config() -> GitEntConfig {
     // Find outermost git root by repeatedly discovering from the parent.
     let cwd = match std::env::current_dir() {
         Ok(p) => p,
-        Err(_) => return GitNestConfig::default(),
+        Err(_) => return GitEntConfig::default(),
     };
     let mut root = cwd.clone();
     let mut search = cwd.as_path();
@@ -116,12 +114,10 @@ pub fn load_root_config() -> GitNestConfig {
         }
     }
 
-    GitNestConfig::load(&root)
+    GitEntConfig::load(&root)
 }
 
-/// Resolve `$XDG_CONFIG_HOME/git-nest/git-nest.toml`, falling back to
-/// `~/.config/git-nest/git-nest.toml` when `XDG_CONFIG_HOME` is not set.
-pub fn global_config_path() -> Option<std::path::PathBuf> {
+pub fn global_config_path() -> Option<PathBuf> {
     xdg::BaseDirectories::with_prefix(GLOBAL_CONFIG_DIR)
         .get_config_home()
         .map(|p| p.join(GLOBAL_CONFIG_FILE))
@@ -157,7 +153,7 @@ mod tests {
 
     /// Write a repo-local config file used by unit tests.
     ///
-    /// - `dir`: repository root where `.git-nest.toml` is written.
+    /// - `dir`: repository root where `.git-ent.toml` is written.
     /// - `content`: TOML body written into the config file.
     fn write_config(dir: &Path, content: &str) {
         fs::write(dir.join(REPO_CONFIG_FILE), content).unwrap();
@@ -167,7 +163,7 @@ mod tests {
     /// Ensures missing local/global files produce an empty merged config.
     fn missing_files_give_default() {
         let dir = tempdir().unwrap();
-        let cfg = GitNestConfig::load_with_global(dir.path(), None);
+        let cfg = GitEntConfig::load_with_global(dir.path(), None);
         assert!(cfg.exclude.is_empty());
     }
 
@@ -179,7 +175,7 @@ mod tests {
             dir.path(),
             r#"exclude = ["vendor/lib", "third_party/other"]"#,
         );
-        let cfg = GitNestConfig::load_with_global(dir.path(), None);
+        let cfg = GitEntConfig::load_with_global(dir.path(), None);
         assert_eq!(cfg.exclude, vec!["vendor/lib", "third_party/other"]);
     }
 
@@ -193,7 +189,7 @@ mod tests {
         let repo_dir = tempdir().unwrap();
         write_config(repo_dir.path(), r#"exclude = ["local/dep"]"#);
 
-        let cfg = GitNestConfig::load_with_global(repo_dir.path(), Some(&global_file));
+        let cfg = GitEntConfig::load_with_global(repo_dir.path(), Some(&global_file));
         assert!(cfg.exclude.contains(&"global/dep".to_string()));
         assert!(cfg.exclude.contains(&"local/dep".to_string()));
     }
@@ -208,14 +204,14 @@ mod tests {
         let repo_dir = tempdir().unwrap();
         write_config(repo_dir.path(), r#"exclude = ["shared/dep"]"#);
 
-        let cfg = GitNestConfig::load_with_global(repo_dir.path(), Some(&global_file));
+        let cfg = GitEntConfig::load_with_global(repo_dir.path(), Some(&global_file));
         assert_eq!(cfg.exclude.iter().filter(|e| *e == "shared/dep").count(), 1);
     }
 
     #[test]
     /// Ensures exclusion matching compares normalized relative paths.
     fn is_excluded_matches_path() {
-        let cfg = GitNestConfig {
+        let cfg = GitEntConfig {
             exclude: vec!["vendor/lib".to_string()],
             ..Default::default()
         };

@@ -1,6 +1,6 @@
 mod common;
 
-use git_nest::cli::push::PushCmd;
+use git_ent::cli::push::PushCmd;
 use std::path::Path;
 
 #[test]

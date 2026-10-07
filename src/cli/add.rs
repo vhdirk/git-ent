@@ -1,9 +1,11 @@
+//! `sgit add` - route paths (from anywhere in the tree) to the right repo.
+
 use clap::Args;
 use std::path::PathBuf;
 
+use crate::RepoTree;
 use crate::cli::command::{Cmd, Context};
 use crate::error::Result;
-use crate::repo_tree::RepoTree;
 
 /// Add files to the git index (paths can be from any submodule).
 #[derive(Default, Debug, Args)]
@@ -27,8 +29,8 @@ impl Cmd for AddCmd {
     /// - `filenames`: paths to stage, routed to the deepest owning repo.
     /// - `all`: when `true`, behaves like `git add -A` in every repo.
     /// - `update`: when `true`, behaves like `git add -u` in every repo.
-    fn run(&self, ctx: &Context) -> Result<()> {
-        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+    fn run(&self, _ctx: &Context) -> Result<()> {
+        let tree = RepoTree::discover(None)?;
 
         if self.all || self.update {
             for r in tree.all() {

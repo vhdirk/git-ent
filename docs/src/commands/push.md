@@ -1,12 +1,12 @@
-# `git-nest push`
+# `git-ent push`
 
 Push to remote across all repos that have commits to push.
 
 ```bash
-git-nest push
+git-ent push
 
 # With push options (e.g. GitLab MR controls)
-git-nest push -o merge_request.create -o merge_request.squash
+git-ent push -o merge_request.create -o merge_request.squash
 ```
 
 You can define a `pushmr` convenience alias in config:
@@ -19,7 +19,7 @@ pushmr = "push -o merge_request.create -o merge_request.remove_source_branch -o 
 Then run:
 
 ```bash
-git-nest pushmr
+git-ent pushmr
 ```
 
 | Flag                   | Description                                                  |

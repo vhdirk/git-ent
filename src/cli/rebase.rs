@@ -3,7 +3,7 @@ use git2::{BranchType, Rebase, RebaseOptions, Repository};
 
 use crate::RepoTree;
 use crate::cli::command::{Cmd, Context};
-use crate::error::{GitNestError, Result};
+use crate::error::{GitEntError, Result};
 use crate::git::signature;
 use crate::repo::Repo;
 
@@ -18,8 +18,8 @@ impl Cmd for RebaseCmd {
     /// Rebase every repo's current branch onto `branch` (depth-first).
     ///
     /// - `branch`: local branch name used as the rebase upstream.
-    fn run(&self, ctx: &Context) -> Result<()> {
-        let tree = RepoTree::discover(ctx.workdir.as_deref())?;
+    fn run(&self, _ctx: &Context) -> Result<()> {
+        let tree = RepoTree::discover(None)?;
         for r in tree.all() {
             let label = r.label();
             if repo_has_branch(&r.repo, &self.branch).is_err() {
@@ -59,14 +59,14 @@ fn rebase_one(r: &Repo, branch: &str) -> Result<()> {
         .find_branch(branch, BranchType::Local)?
         .get()
         .target()
-        .ok_or_else(|| GitNestError::Other(format!("branch '{branch}' has no target")))?;
+        .ok_or_else(|| GitEntError::Other(format!("branch '{branch}' has no target")))?;
     let upstream = repo.find_annotated_commit(upstream_oid)?;
 
     // "branch" (what we're rebasing) = current HEAD.
     let head_oid = repo
         .head()?
         .target()
-        .ok_or_else(|| GitNestError::Other("HEAD has no target".into()))?;
+        .ok_or_else(|| GitEntError::Other("HEAD has no target".into()))?;
     let head_annotated = repo.find_annotated_commit(head_oid)?;
 
     let mut opts = RebaseOptions::new();
@@ -82,7 +82,7 @@ fn rebase_one(r: &Repo, branch: &str) -> Result<()> {
         let _op = step?;
         if repo.index()?.has_conflicts() {
             let _ = rebase.abort();
-            return Err(GitNestError::Conflict {
+            return Err(GitEntError::Conflict {
                 repo: r.display_label(),
                 workdir: r.workdir.clone(),
                 hint: format!("git rebase {branch}"),

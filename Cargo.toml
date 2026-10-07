@@ -1,19 +1,19 @@
 [package]
-name = "git-nest"
+name = "git-ent"
 version = "0.0.1"
 edition = "2021"
 authors = ["Dirk Van Haerenborgh <vhdirk@gmail.com>"]
 description = "manage projects with (nested) git submodules"
 readme = "README.md"
 license = "MIT"
-repository = "https://github.com/vhdirk/git-nest"
+repository = "https://github.com/vhdirk/git-ent"
 
 [lib]
-name = "git_nest"
+name = "git_ent"
 path = "src/lib.rs"
 
 [[bin]]
-name = "git-nest"
+name = "git-ent"
 path = "src/main.rs"
 
 [dependencies]
@@ -22,6 +22,7 @@ clap = { version = "4.5", features = ["derive"] }
 colored = "3.0"
 edit = "0.1"
 git2 = { version = "0.21.0", features = ["cred"] }
+is_executable = "1.0.6"
 serde = { version = "1.0.229", features = ["derive"] }
 shell-words = "1.1.1"
 tempfile = "3.14"

@@ -3,8 +3,8 @@
 
 #![allow(dead_code)]
 
-use git_nest::GitNestError;
-use git_nest::cli::command::{Cmd as GitNestCommand, Context as GitNestContext};
+use git_ent::GitEntError;
+use git_ent::cli::command::{Cmd as GitEntCommand, Context as GitEntContext};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::{Mutex, OnceLock};
@@ -187,11 +187,11 @@ fn cwd_lock() -> &'static Mutex<()> {
 }
 
 /// Execute `c` with process cwd temporarily set to `cwd` under a global lock.
-pub fn in_cwd(cwd: &Path, c: impl GitNestCommand) -> Result<(), GitNestError> {
+pub fn in_cwd(cwd: &Path, c: impl GitEntCommand) -> Result<(), GitEntError> {
     let _guard = cwd_lock().lock().expect("cwd lock poisoned");
     let prev_cwd = std::env::current_dir().expect("read cwd");
     std::env::set_current_dir(cwd).expect("set cwd");
-    let out = c.run(&GitNestContext::default());
+    let out = c.run(&GitEntContext::default());
     std::env::set_current_dir(prev_cwd).expect("restore cwd");
     out
 }

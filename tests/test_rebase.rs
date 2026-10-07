@@ -1,5 +1,5 @@
 mod common;
-use git_nest::cli::{branch::BranchCmd, rebase::RebaseCmd};
+use git_ent::cli::{branch::BranchCmd, rebase::RebaseCmd};
 
 #[test]
 /// Test case for rebase missing branch skips.

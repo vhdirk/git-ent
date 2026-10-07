@@ -6,8 +6,8 @@ use std::path::{Path, PathBuf};
 
 use git2::{Repository, SubmoduleIgnore};
 
-use crate::config::GitNestConfig;
-use crate::error::{GitNestError, Result};
+use crate::config::GitEntConfig;
+use crate::error::{GitEntError, Result};
 use crate::repo::{Repo, RepoStatus};
 
 /// A file change classification, modelled after `git status`.
@@ -74,11 +74,11 @@ impl RepoTree {
         let repo = Repository::discover(&cwd)?;
         let workdir = repo
             .workdir()
-            .ok_or_else(|| GitNestError::Other("repo has no working directory".into()))?
+            .ok_or_else(|| GitEntError::Other("repo has no working directory".into()))?
             .to_path_buf();
 
         // TODO: `start` will not always be the root of the repo tree:
-        // If we cd into a submodule and type 'git-nest status', we should also see changes
+        // If we cd into a submodule and type 'git-ent status', we should also see changes
         // of parent and sibling submodules.
 
         // fs::canonicalize normalises symlinks; we want a stable top dir.
@@ -90,7 +90,7 @@ impl RepoTree {
         };
 
         let mut submodules = Vec::new();
-        let root_cfg = GitNestConfig::load(&top);
+        let root_cfg = GitEntConfig::load(&top);
         let mut cfg_chain = vec![(top.clone(), root_cfg)];
         collect_submodules(&root.repo, &top, &top, &mut cfg_chain, &mut submodules)?;
         Ok(Self { root, submodules })
@@ -114,7 +114,7 @@ impl RepoTree {
         if let Some((repo, rel)) = self.resolve_file(filename) {
             repo.stage(&rel)
         } else {
-            Err(GitNestError::Other(format!(
+            Err(GitEntError::Other(format!(
                 "File {} is not in any known repo/submodule",
                 filename.display()
             )))
@@ -250,7 +250,7 @@ fn collect_submodules(
     repo: &Repository,
     top: &Path,
     parent_workdir: &Path,
-    cfg_chain: &mut Vec<(PathBuf, GitNestConfig)>,
+    cfg_chain: &mut Vec<(PathBuf, GitEntConfig)>,
     acc: &mut Vec<Repo>,
 ) -> Result<()> {
     let subs = match repo.submodules() {
@@ -279,9 +279,9 @@ fn collect_submodules(
             Ok(r) => r,
             Err(_) => continue,
         };
-        // Load this submodule's own .git-nest.toml and make it active for the
+        // Load this submodule's own .git-ent.toml and make it active for the
         // subtree rooted at this submodule.
-        let sub_cfg = GitNestConfig::load(&sub_workdir);
+        let sub_cfg = GitEntConfig::load(&sub_workdir);
         cfg_chain.push((sub_workdir.clone(), sub_cfg));
         // recurse first (depth-first: deepest appears first)
         collect_submodules(&sub_repo, top, &sub_workdir, cfg_chain, acc)?;

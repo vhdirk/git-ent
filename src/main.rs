@@ -3,29 +3,26 @@ use std::process::ExitCode;
 use std::path::PathBuf;
 
 use clap::{Parser, Subcommand};
-use git_nest::cli::add::AddCmd;
-use git_nest::cli::branch::BranchCmd;
-use git_nest::cli::checkout::CheckoutCmd;
-use git_nest::cli::clone::CloneCmd;
-use git_nest::cli::command::{Cmd, Context};
-use git_nest::cli::commit::CommitCmd;
-use git_nest::cli::merge::MergeCmd;
-use git_nest::cli::push::PushCmd;
-use git_nest::cli::rebase::RebaseCmd;
-use git_nest::cli::reset::ResetCmd;
-use git_nest::cli::restore::RestoreCmd;
-use git_nest::cli::squash::SquashCmd;
-use git_nest::cli::status::StatusCmd;
-use git_nest::cli::switch::SwitchCmd;
-use git_nest::cli::update::UpdateCmd;
+use git_ent::cli::add::AddCmd;
+use git_ent::cli::branch::BranchCmd;
+use git_ent::cli::checkout::CheckoutCmd;
+use git_ent::cli::clone::CloneCmd;
+use git_ent::cli::command::{Cmd, Context};
+use git_ent::cli::commit::CommitCmd;
+use git_ent::cli::merge::MergeCmd;
+use git_ent::cli::push::PushCmd;
+use git_ent::cli::rebase::RebaseCmd;
+use git_ent::cli::reset::ResetCmd;
+use git_ent::cli::restore::RestoreCmd;
+use git_ent::cli::squash::SquashCmd;
+use git_ent::cli::status::StatusCmd;
+use git_ent::cli::switch::SwitchCmd;
+use git_ent::cli::update::UpdateCmd;
 
-/// git-nest - manage projects with (nested) git submodules.
+/// git-ent - manage projects with (nested) git submodules.
 #[derive(Debug, Parser)]
-#[command(name = "git-nest", version, about, long_about = None)]
+#[command(name = "git-ent", version, about, long_about = None)]
 pub struct Cli {
-    #[arg(short = 'C')]
-    pub workdir: Option<PathBuf>,
-
     #[command(subcommand)]
     pub command: CliCommand,
 }
@@ -52,9 +49,7 @@ pub enum CliCommand {
 fn main() -> ExitCode {
     let cli = Cli::parse();
 
-    let ctx = Context {
-        workdir: cli.workdir.clone(),
-    };
+    let ctx = Context::default();
 
     let result = match cli.command {
         CliCommand::Clone(args) => args.run(&ctx),

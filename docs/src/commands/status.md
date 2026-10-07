@@ -1,9 +1,9 @@
-# `git-nest status`
+# `git-ent status`
 
 Show status recursively across all submodules.
 
 ```bash
-git-nest status
+git-ent status
 ```
 
 Collects staged, modified, and untracked files from every repo in the

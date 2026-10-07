@@ -5,7 +5,7 @@
 }:
 
 pkgs.rustPlatform.buildRustPackage rec {
-  pname = "git-nest";
+  pname = "git-ent";
   version = "0.2.0";
 
   src = "${self}";
@@ -31,9 +31,9 @@ pkgs.rustPlatform.buildRustPackage rec {
 
   meta = with pkgs.lib; {
     description = "Manage projects with (nested) git submodules";
-    homepage = "https://github.com/vhdirk/git-nest";
+    homepage = "https://github.com/vhdirk/git-ent";
     license = licenses.unfree;
-    mainProgram = "git-nest";
+    mainProgram = "git-ent";
     platforms = platforms.unix;
     maintainers = [ ];
   };
