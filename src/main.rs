@@ -1,7 +1,5 @@
 use std::process::ExitCode;
 
-use std::path::PathBuf;
-
 use clap::{Parser, Subcommand};
 use git_ent::cli::add::AddCmd;
 use git_ent::cli::branch::BranchCmd;

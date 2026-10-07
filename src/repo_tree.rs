@@ -127,11 +127,8 @@ impl RepoTree {
         let mut all_untracked: Vec<StatusEntry> = Vec::new();
 
         for r in self.all() {
-            let prefix = if r.prefix == None {
-                PathBuf::new()
-            } else {
-                r.prefix.clone().unwrap()
-            };
+            let prefix = r.prefix.clone().unwrap_or(PathBuf::from("."));
+
             let status = r.status()?;
             for s in status.staged {
                 all_staged.push(StatusEntry {

@@ -213,7 +213,6 @@ mod tests {
     fn is_excluded_matches_path() {
         let cfg = GitEntConfig {
             exclude: vec!["vendor/lib".to_string()],
-            ..Default::default()
         };
         assert!(cfg.is_excluded(Path::new("vendor/lib")));
         assert!(!cfg.is_excluded(Path::new("vendor/other")));

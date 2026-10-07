@@ -10,7 +10,6 @@ fn checkout_existing_branch_across_submodules() {
         &r.main,
         BranchCmd {
             create: Some("feature".into()),
-            ..Default::default()
         },
     )
     .unwrap();
@@ -145,7 +144,6 @@ fn checkout_branch_files_routes_to_submodule() {
         &r.main,
         BranchCmd {
             create: Some("feature".into()),
-            ..Default::default()
         },
     )
     .unwrap();
