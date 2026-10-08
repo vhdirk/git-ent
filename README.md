@@ -197,20 +197,6 @@ exclude = ["vendor/heavy-sdk", "third_party/legacy"]
 
 Each entry in `exclude` is matched as a full path relative to the repo that owns the config file, so nested paths are supported.
 
-## Design
-
-See the full docs in [`docs/`](./docs/) or build with `mdbook serve docs`.
-The core abstraction is **`RepoTree`**:
-
-```text
-RepoTree
-├── root                  - the top-level repo
-├── submodules            - depth-first list of submodule repos
-├── all()                 - submodules + root (deepest first, root last)
-├── resolve_file(path)    - route any path to its owning repo
-└── stage_submodule_pointers(&repo)   - auto-stage dirty refs
-```
-
 ## Development
 
 ```bash
