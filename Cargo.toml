@@ -32,6 +32,7 @@ tempfile = "3.14"
 thiserror = "2.0.21"
 toml = "1.1.2"
 xdg = "3.0.0"
+pathdiff = "0.2.3"
 
 [profile.release]
 lto = true
