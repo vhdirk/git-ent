@@ -4,13 +4,13 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use git2::{Repository, SubmoduleIgnore};
-use pathdiff::diff_paths;
-
 use crate::config::GitEntConfig;
 use crate::error::{GitEntError, Result};
 use crate::git2_ext::RepositoryExt;
 use crate::repo::{Repo, RepoStatus};
+use git2::{Repository, SubmoduleIgnore};
+use path_clean::{PathClean, clean};
+use pathdiff::diff_paths;
 
 /// A file change classification, modelled after `git status`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,6 +51,8 @@ pub struct RepoTree {
     pub root: Repo,
     /// All submodules, deepest first.
     pub submodules: Vec<Repo>,
+
+    pub path: PathBuf,
 }
 
 /// Join `prefix` and `path` for display (drops the empty prefix cleanly).
@@ -107,8 +109,12 @@ impl RepoTree {
 
         // filter out excluded submodules
 
-        collect_submodules(&root.repo, &cwd, &top, &mut cfg_chain, &mut submodules)?;
-        Ok(Self { root, submodules })
+        collect_submodules(&root.repo, &top, &top, &mut cfg_chain, &mut submodules)?;
+        Ok(Self {
+            root,
+            submodules,
+            path: top,
+        })
     }
 
     /// All repos, depth-first, root last.
@@ -146,7 +152,6 @@ impl RepoTree {
 
             let status = r.status()?;
             for s in status.staged {
-                print!("Staged: {} {}\n", prefix.display(), &s.path.display());
                 all_staged.push(StatusEntry {
                     kind: s.kind,
                     path: prefix_path(&prefix, &s.path),
@@ -176,8 +181,7 @@ impl RepoTree {
     /// directory, so callers (and tests) don't need to mutate the process
     /// working directory.
     pub fn resolve_file_from(&self, base: &Path, filename: &Path) -> Option<(&Repo, PathBuf)> {
-        let raw = base.join(filename);
-        let abs = fs::canonicalize(&raw).unwrap_or(raw);
+        let abs = base.join(filename).clean();
 
         let mut best: Option<(&Repo, PathBuf, usize)> = None;
         for r in self.all() {
@@ -300,8 +304,11 @@ fn collect_submodules(
         collect_submodules(&sub_repo, top, &sub_workdir, cfg_chain, acc)?;
         cfg_chain.pop();
 
-        let prefix = diff_paths(&sub_workdir, top).unwrap_or(sub_path);
-
+        // let prefix = diff_paths(&sub_workdir, top).unwrap_or(sub_path);
+        let prefix = sub_workdir
+            .strip_prefix(top)
+            .unwrap_or(&sub_workdir)
+            .to_path_buf();
         acc.push(Repo {
             repo: sub_repo,
             workdir: sub_workdir,

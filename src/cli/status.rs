@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use colored::Colorize;
+use pathdiff::diff_paths;
 
 use crate::RepoTree;
 use crate::cli::command::{Cmd, Context};
@@ -12,11 +13,12 @@ use clap::Args;
 #[derive(Default, Debug, Args)]
 pub struct StatusCmd;
 
-fn format_path(p: &Path) -> String {
-    if p.starts_with("./") {
-        return p.strip_prefix("./").unwrap().to_string_lossy().into_owned();
+fn format_path(cwd: &Path, p: &Path) -> String {
+    let d = diff_paths(p, &cwd).unwrap_or_else(|| p.to_path_buf());
+    if d.starts_with("./") {
+        return d.strip_prefix("./").unwrap().to_string_lossy().into_owned();
     }
-    p.to_string_lossy().into_owned()
+    d.to_string_lossy().into_owned()
 }
 
 impl Cmd for StatusCmd {
@@ -42,7 +44,12 @@ impl Cmd for StatusCmd {
             for s in &status.staged {
                 println!(
                     "\t{}",
-                    format!("{}{}", s.kind.label(), format_path(&s.path)).green()
+                    format!(
+                        "{}{}",
+                        s.kind.label(),
+                        format_path(&cwd, &tree.path.join(&s.path))
+                    )
+                    .green()
                 );
             }
         }
@@ -56,7 +63,12 @@ impl Cmd for StatusCmd {
             for s in &status.unstaged {
                 println!(
                     "\t{}",
-                    format!("{}{}", s.kind.label(), format_path(&s.path)).red()
+                    format!(
+                        "{}{}",
+                        s.kind.label(),
+                        format_path(&cwd, &tree.path.join(&s.path))
+                    )
+                    .red()
                 );
             }
         }
@@ -65,7 +77,7 @@ impl Cmd for StatusCmd {
             println!("\nUntracked files:");
             println!("  (use \"git ent add <file>...\" to include in what will be committed)");
             for s in &status.untracked {
-                println!("\t{}", format_path(&s.path).red());
+                println!("\t{}", format_path(&cwd, &tree.path.join(&s.path)).red());
             }
         }
 
