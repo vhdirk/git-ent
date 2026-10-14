@@ -1,6 +1,7 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use colored::Colorize;
+use pathdiff::diff_paths;
 
 use crate::RepoTree;
 use crate::cli::command::{Cmd, Context};
@@ -12,8 +13,17 @@ use clap::Args;
 #[derive(Default, Debug, Args)]
 pub struct StatusCmd;
 
+fn format_path(cwd: &Path, p: &Path) -> String {
+    let d = diff_paths(p, &cwd).unwrap_or_else(|| p.to_path_buf());
+    if d.starts_with("./") {
+        return d.strip_prefix("./").unwrap().to_string_lossy().into_owned();
+    }
+    d.to_string_lossy().into_owned()
+}
+
 impl Cmd for StatusCmd {
     fn run(&self, _ctx: &Context) -> Result<()> {
+        let cwd = std::env::current_dir()?;
         let tree = RepoTree::discover(None)?;
 
         let status = tree.status()?;
@@ -37,7 +47,7 @@ impl Cmd for StatusCmd {
                     format!(
                         "{}{}",
                         s.kind.label(),
-                        prefix_path(&PathBuf::from("."), &s.path)
+                        format_path(&cwd, &tree.path.join(&s.path))
                     )
                     .green()
                 );
@@ -56,7 +66,7 @@ impl Cmd for StatusCmd {
                     format!(
                         "{}{}",
                         s.kind.label(),
-                        prefix_path(&PathBuf::from("."), &s.path)
+                        format_path(&cwd, &tree.path.join(&s.path))
                     )
                     .red()
                 );
@@ -67,7 +77,7 @@ impl Cmd for StatusCmd {
             println!("\nUntracked files:");
             println!("  (use \"git ent add <file>...\" to include in what will be committed)");
             for s in &status.untracked {
-                println!("\t{}", prefix_path(&PathBuf::from("."), &s.path).red());
+                println!("\t{}", format_path(&cwd, &tree.path.join(&s.path)).red());
             }
         }
 

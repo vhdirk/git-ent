@@ -30,7 +30,9 @@ impl Cmd for AddCmd {
     /// - `all`: when `true`, behaves like `git add -A` in every repo.
     /// - `update`: when `true`, behaves like `git add -u` in every repo.
     fn run(&self, _ctx: &Context) -> Result<()> {
-        let tree = RepoTree::discover(None)?;
+        let cwd = std::env::current_dir()?;
+
+        let tree = RepoTree::discover(Some(&cwd))?;
 
         if self.all || self.update {
             for r in tree.all() {
@@ -54,7 +56,7 @@ impl Cmd for AddCmd {
         }
 
         for filename in &self.paths {
-            match tree.resolve_file(filename) {
+            match tree.resolve_file(&filename) {
                 None => {
                     eprintln!(
                         "Error: {} is not in any known repo/submodule",

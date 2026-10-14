@@ -13,6 +13,7 @@ pub mod cli;
 pub mod config;
 pub mod error;
 pub mod git;
+pub mod git2_ext;
 pub mod repo;
 pub mod repo_tree;
 

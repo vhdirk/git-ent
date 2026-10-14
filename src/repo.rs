@@ -33,14 +33,13 @@ pub struct Repo {
     /// Absolute path to the working directory.
     pub workdir: PathBuf,
     /// Path relative to the top-level repo (`"."` for the root).
-    pub prefix: Option<PathBuf>,
+    pub prefix: PathBuf,
 }
 
 impl Repo {
     /// Human-readable label (relative path, or `"."` for root).
     pub fn label(&self) -> String {
-        let p = self.prefix.clone().unwrap_or(PathBuf::from(""));
-        let ps = p.to_string_lossy();
+        let ps = self.prefix.to_string_lossy();
         if ps.is_empty() {
             ".".into()
         } else {
@@ -51,11 +50,10 @@ impl Repo {
     /// Label suitable for `git status`-style output
     /// (`"(top-level)"` for the root).
     pub fn display_label(&self) -> String {
-        if let Some(prefix) = &self.prefix {
-            prefix.to_string_lossy().into_owned()
-        } else {
-            "(top-level)".into()
+        if self.prefix == PathBuf::from(".") {
+            return "(top-level)".into();
         }
+        self.prefix.to_string_lossy().into_owned()
     }
 
     /// Return the current branch name, or `None` if detached.
@@ -82,7 +80,7 @@ impl Repo {
             .workdir()
             .map(|w| w.join(rel))
             .unwrap_or_else(|| rel.to_path_buf());
-        println!("Staging path: {} {} ", full.display(), rel.display());
+
         if full.exists() {
             index.add_all([rel], IndexAddOption::DEFAULT, None)?;
         } else {
@@ -129,8 +127,9 @@ impl Repo {
 
         for s in statuses.iter() {
             let flags = s.status();
+
             let path = match s.path().ok() {
-                Some(p) => p.to_string(),
+                Some(p) => PathBuf::from(p),
                 None => continue,
             };
 
@@ -226,6 +225,7 @@ impl Repo {
     /// - `repo`: repository to update.
     /// - `name`: local branch name.
     pub fn checkout(&self, name: &str, create: bool) -> Result<bool> {
+        // TODO: there's an error in here
         let (branch, created) = match self.repo.find_branch(name, BranchType::Local) {
             Ok(b) => (b, false),
             Err(e) if e.code() == ErrorCode::NotFound => {

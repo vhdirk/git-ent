@@ -4,11 +4,13 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use git2::{Repository, SubmoduleIgnore};
-
 use crate::config::GitEntConfig;
 use crate::error::{GitEntError, Result};
+use crate::git2_ext::RepositoryExt;
 use crate::repo::{Repo, RepoStatus};
+use git2::{Repository, SubmoduleIgnore};
+use path_clean::{PathClean, clean};
+use pathdiff::diff_paths;
 
 /// A file change classification, modelled after `git status`.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -40,7 +42,7 @@ impl ChangeKind {
 pub struct StatusEntry {
     pub kind: ChangeKind,
     /// Path relative to the owning repository's working directory.
-    pub path: String,
+    pub path: PathBuf,
 }
 
 /// The root repo and all its (nested) submodule repos, in depth-first order.
@@ -49,14 +51,16 @@ pub struct RepoTree {
     pub root: Repo,
     /// All submodules, deepest first.
     pub submodules: Vec<Repo>,
+
+    pub path: PathBuf,
 }
 
 /// Join `prefix` and `path` for display (drops the empty prefix cleanly).
-pub(crate) fn prefix_path(prefix: &Path, path: &str) -> String {
+pub(crate) fn prefix_path(prefix: &Path, path: &Path) -> PathBuf {
     if prefix.as_os_str().is_empty() {
-        path.to_string()
+        path.into()
     } else {
-        prefix.join(path).to_string_lossy().into_owned()
+        prefix.join(path)
     }
 }
 
@@ -71,7 +75,17 @@ impl RepoTree {
             Some(p) => p.to_path_buf(),
             None => std::env::current_dir()?,
         };
-        let repo = Repository::discover(&cwd)?;
+
+        // Find the top of the repotree
+        let mut repo = Repository::discover(&cwd)?;
+        while repo.is_submodule()? {
+            if let Some(superproject) = repo.find_superproject()? {
+                repo = superproject;
+            } else {
+                break;
+            }
+        }
+
         let workdir = repo
             .workdir()
             .ok_or_else(|| GitEntError::Other("repo has no working directory".into()))?
@@ -86,14 +100,21 @@ impl RepoTree {
         let root = Repo {
             repo,
             workdir: top.clone(),
-            prefix: None,
+            prefix: PathBuf::from("."),
         };
 
         let mut submodules = Vec::new();
         let root_cfg = GitEntConfig::load(&top);
         let mut cfg_chain = vec![(top.clone(), root_cfg)];
+
+        // filter out excluded submodules
+
         collect_submodules(&root.repo, &top, &top, &mut cfg_chain, &mut submodules)?;
-        Ok(Self { root, submodules })
+        Ok(Self {
+            root,
+            submodules,
+            path: top,
+        })
     }
 
     /// All repos, depth-first, root last.
@@ -127,7 +148,7 @@ impl RepoTree {
         let mut all_untracked: Vec<StatusEntry> = Vec::new();
 
         for r in self.all() {
-            let prefix = r.prefix.clone().unwrap_or(PathBuf::from("."));
+            let prefix = r.prefix.clone();
 
             let status = r.status()?;
             for s in status.staged {
@@ -160,8 +181,7 @@ impl RepoTree {
     /// directory, so callers (and tests) don't need to mutate the process
     /// working directory.
     pub fn resolve_file_from(&self, base: &Path, filename: &Path) -> Option<(&Repo, PathBuf)> {
-        let raw = base.join(filename);
-        let abs = fs::canonicalize(&raw).unwrap_or(raw);
+        let abs = base.join(filename).clean();
 
         let mut best: Option<(&Repo, PathBuf, usize)> = None;
         for r in self.all() {
@@ -211,21 +231,21 @@ impl RepoTree {
         if !status.staged.is_empty() {
             lines.push("# Changes to be committed:".into());
             for e in &status.staged {
-                lines.push(format!("#\t{}{}", e.kind.label(), e.path));
+                lines.push(format!("#\t{}{}", e.kind.label(), e.path.display()));
             }
             lines.push("#".into());
         }
         if !status.unstaged.is_empty() {
             lines.push("# Changes not staged for commit:".into());
             for e in &status.unstaged {
-                lines.push(format!("#\t{}{}", e.kind.label(), e.path));
+                lines.push(format!("#\t{}{}", e.kind.label(), e.path.display()));
             }
             lines.push("#".into());
         }
         if !status.untracked.is_empty() {
             lines.push("# Untracked files:".into());
             for e in &status.untracked {
-                lines.push(format!("#\t{}", e.path));
+                lines.push(format!("#\t{}", e.path.display()));
             }
             lines.push("#".into());
         }
@@ -271,7 +291,7 @@ fn collect_submodules(
             // not initialised yet
             continue;
         }
-        let sub_workdir = fs::canonicalize(&sub_path).unwrap_or(sub_path);
+        let sub_workdir = fs::canonicalize(&sub_path).unwrap_or(sub_path.clone());
         let sub_repo = match Repository::open(&sub_workdir) {
             Ok(r) => r,
             Err(_) => continue,
@@ -283,6 +303,8 @@ fn collect_submodules(
         // recurse first (depth-first: deepest appears first)
         collect_submodules(&sub_repo, top, &sub_workdir, cfg_chain, acc)?;
         cfg_chain.pop();
+
+        // let prefix = diff_paths(&sub_workdir, top).unwrap_or(sub_path);
         let prefix = sub_workdir
             .strip_prefix(top)
             .unwrap_or(&sub_workdir)
@@ -290,7 +312,7 @@ fn collect_submodules(
         acc.push(Repo {
             repo: sub_repo,
             workdir: sub_workdir,
-            prefix: Some(prefix),
+            prefix: prefix,
         });
     }
     Ok(())
